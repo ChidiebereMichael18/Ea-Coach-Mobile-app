@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Icon from 'react-native-vector-icons/Feather';
+import { Feather as Icon } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../../context/AuthContext';
 import { getBuses } from '../../api/busApi';
@@ -170,9 +170,12 @@ const BookingScreen = ({ route, navigation }) => {
               key={bus._id} 
               style={styles.busCard}
               onPress={() => {
-                setSelectedBus(bus);
-                setCurrentStep(2);
-                setPassengers(Array(1).fill(null).map(() => ({ name: '', age: '', gender: 'Male' })));
+                navigation.navigate('SeatSelection', {
+                  bus,
+                  from: searchData.from,
+                  to: searchData.to,
+                  date: searchData.date.toISOString(),
+                });
               }}
             >
               <View style={styles.busHeader}>

@@ -8,7 +8,8 @@ export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [initializing, setInitializing] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -27,13 +28,14 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Error loading stored data:', error);
     } finally {
-      setLoading(false);
+      setInitializing(false);
     }
   };
 
   const login = async (email, password) => {
     try {
       setLoading(true);
+      setError(null);
       const response = await api.post('/auth/login', { email, password });
       const { token, ...userData } = response.data;
       
@@ -42,11 +44,11 @@ export const AuthProvider = ({ children }) => {
       
       api.defaults.headers.Authorization = `Bearer ${token}`;
       setUser(userData);
-      setError(null);
       return { success: true };
     } catch (error) {
-      setError(error.response?.data?.message || 'Login failed');
-      return { success: false, error: error.response?.data?.message };
+      const msg = error.response?.data?.message || 'Login failed';
+      setError(msg);
+      return { success: false, error: msg };
     } finally {
       setLoading(false);
     }
@@ -108,6 +110,7 @@ export const AuthProvider = ({ children }) => {
       value={{
         user,
         loading,
+        initializing,
         error,
         login,
         signup,

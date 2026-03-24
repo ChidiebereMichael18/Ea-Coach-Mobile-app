@@ -1,7 +1,8 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Icon from 'react-native-vector-icons/Feather';
+import { Feather as Icon } from '@expo/vector-icons';
 import HomeScreen from '../screens/dashboard/HomeScreen';
+import RoutesScreen from '../screens/main/RoutesScreen';
 import BookingHistoryScreen from '../screens/dashboard/BookingHistoryScreen';
 import ChatSupportScreen from '../screens/dashboard/ChatSupportScreen';
 import ProfileScreen from '../screens/dashboard/ProfileScreen';
@@ -18,6 +19,8 @@ const MainTabNavigator = () => {
           
           if (route.name === 'Home') {
             iconName = 'home';
+          } else if (route.name === 'Explore') {
+            iconName = 'map';
           } else if (route.name === 'Bookings') {
             iconName = 'calendar';
           } else if (route.name === 'Chat') {
@@ -41,7 +44,7 @@ const MainTabNavigator = () => {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Dashboard" component={DashboardScreen} />
+      <Tab.Screen name="Explore" component={RoutesScreen} />
       <Tab.Screen name="Bookings" component={BookingHistoryScreen} />
       <Tab.Screen name="Chat" component={ChatSupportScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
