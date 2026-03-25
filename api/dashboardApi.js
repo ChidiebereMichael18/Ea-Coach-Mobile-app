@@ -49,6 +49,24 @@ export async function getMyBookings() {
 }
 
 /**
+ * Create a new booking
+ * @param {object} bookingData 
+ * @returns {Promise<{ success: boolean, data?: object, error?: string }>}
+ */
+export async function createBooking(bookingData) {
+  try {
+    const response = await api.post('/bookings', bookingData);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error('Create booking failed:', error.response?.data || error.message);
+    return { 
+      success: false, 
+      error: error.response?.data?.message || 'Failed to initialize booking.' 
+    };
+  }
+}
+
+/**
  * Cancel a booking
  * @param {string} id 
  * @returns {Promise<{ success: boolean, data?: object, error?: string }>}

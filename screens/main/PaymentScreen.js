@@ -18,9 +18,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 
 const PAYMENT_METHODS = [
-  { id: 'mobile_money', name: 'Mobile Money', icon: 'smartphone', color: '#F59E0B', sub: 'MTN or Airtel Money' },
+  { id: 'mtn', name: 'MTN Mobile Money', icon: 'smartphone', color: '#F59E0B', sub: 'Instant via MoMo prompt' },
+  { id: 'airtel', name: 'Airtel Money', icon: 'smartphone', color: '#EF4444', sub: 'Instant via Airtel prompt' },
   { id: 'card', name: 'Debit/Credit Card', icon: 'credit-card', color: colors.primary, sub: 'Visa or Mastercard' },
-  { id: 'cash', name: 'Pay at Counter', icon: 'dollar-sign', color: colors.success, sub: 'Confirm & pay later' },
+  { id: 'bank', name: 'Bank Transfer', icon: 'landmark', color: colors.success, sub: '1-2 hours processing' },
 ];
 
 const PaymentScreen = ({ route, navigation }) => {
@@ -38,8 +39,14 @@ const PaymentScreen = ({ route, navigation }) => {
         name: p.name.trim(),
         age: parseInt(p.age),
         gender: p.gender,
+        phone: p.phone.trim(),
+        idNumber: p.idNumber?.trim() || 'N/A',
         seatNumber: p.seat.toString()
       }));
+
+      let mappedMethod = methodId;
+      if (methodId === 'mtn' || methodId === 'airtel') mappedMethod = 'mobile_money';
+      if (methodId === 'bank') mappedMethod = 'cash'; // Fallback for bank
 
       const res = await createBooking({
         busId: bus._id || bus.id,
@@ -50,7 +57,7 @@ const PaymentScreen = ({ route, navigation }) => {
         passengers: passengerList,
         totalSeats: selectedSeats.length,
         totalAmount,
-        paymentMethod: methodId
+        paymentMethod: mappedMethod
       });
 
       if (res.success && res.data) {
@@ -66,10 +73,11 @@ const PaymentScreen = ({ route, navigation }) => {
             paymentMethod: methodId
         });
       } else {
-        Alert.alert('Booking Error', res.error || 'System could not finalize booking.');
+        Alert.alert('Booking Failed', res.error || 'The server could not initialize your booking. Please check your connection.');
       }
     } catch (err) {
-      Alert.alert('Network Error', 'Connection issue. Please try again.');
+      console.error('Payment handlePay error:', err);
+      Alert.alert('Network Error', 'The booking service is currently unreachable. Please try again in a few moments.');
     } finally {
       setLoading(false);
     }
@@ -115,7 +123,10 @@ const PaymentScreen = ({ route, navigation }) => {
                     <Text style={styles.label}>Departure</Text>
                     <Text style={styles.val}>{from}</Text>
                 </View>
-                <Icon name="arrow-right" size={16} color={colors.gray[300]} style={{ marginHorizontal: 20 }} />
+                <View style={styles.routeVisual}>
+                    <View style={styles.dash} />
+                    <Icon name="truck" size={16} color={colors.primary} />
+                </View>
                 <View style={{ flex: 1, alignItems: 'flex-end' }}>
                     <Text style={styles.label}>Arrival</Text>
                     <Text style={styles.val}>{to}</Text>
@@ -144,29 +155,33 @@ const PaymentScreen = ({ route, navigation }) => {
         </View>
 
         <Text style={styles.sectionTitle}>Choose Payment Method</Text>
-        {PAYMENT_METHODS.map((method) => (
-          <TouchableOpacity 
-            key={method.id} 
-            style={[styles.methodCard, selectedMethod === method.id && styles.methodCardActive]}
-            activeOpacity={0.8}
-            onPress={() => handlePay(method.id)}
-          >
-            <View style={[styles.methodIcon, { backgroundColor: method.color + '15' }]}>
-              <Icon name={method.icon} size={24} color={method.color} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.methodName}>{method.name}</Text>
-              <Text style={styles.methodSub}>{method.sub}</Text>
-            </View>
-            <Icon name="chevron-right" size={18} color={colors.gray[300]} />
-          </TouchableOpacity>
-        ))}
+        <View style={styles.methodsList}>
+            {PAYMENT_METHODS.map((method) => (
+            <TouchableOpacity 
+                key={method.id} 
+                style={[styles.methodCard, selectedMethod === method.id && styles.methodCardActive]}
+                activeOpacity={0.8}
+                onPress={() => handlePay(method.id)}
+            >
+                <View style={[styles.methodIcon, { backgroundColor: method.color + '10' }]}>
+                <Icon name={method.icon} size={24} color={method.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                <Text style={styles.methodName}>{method.name}</Text>
+                <Text style={styles.methodSub}>{method.sub}</Text>
+                </View>
+                <View style={[styles.radio, selectedMethod === method.id && styles.radioActive]}>
+                    {selectedMethod === method.id && <View style={styles.radioInner} />}
+                </View>
+            </TouchableOpacity>
+            ))}
+        </View>
 
         <View style={styles.securityNote}>
-            <Icon name="lock" size={14} color={colors.success} />
-            <Text style={styles.securityText}>AES-256 Bit Secured Transaction</Text>
+            <Icon name="shield" size={16} color={colors.success} />
+            <Text style={styles.securityText}>Secure SSL checkout powered by EA Pay</Text>
         </View>
-        <View style={{ height: 40 }} />
+        <View style={{ height: 60 }} />
       </ScrollView>
     </View>
   );
@@ -179,7 +194,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    backgroundColor: 'rgba(15, 23, 42, 0.9)',
     zIndex: 100,
     justifyContent: 'center',
     alignItems: 'center',
@@ -187,14 +202,14 @@ const styles = StyleSheet.create({
   overlayText: {
     color: colors.white,
     marginTop: 20,
-    fontWeight: '700',
+    fontWeight: '800',
     fontSize: 16,
-    letterSpacing: 1,
+    letterSpacing: 1.5,
   },
   headerArea: {
     paddingBottom: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
     ...shadows.md,
   },
   header: {
@@ -222,7 +237,7 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     backgroundColor: colors.white,
-    borderRadius: 28,
+    borderRadius: 32,
     padding: 24,
     marginBottom: 32,
     ...shadows.lg,
@@ -231,18 +246,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   summaryTitle: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '900',
     color: colors.gray[400],
-    letterSpacing: 1.5,
+    letterSpacing: 2,
   },
   badge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 10,
+    borderRadius: 12,
   },
   badgeText: {
     fontSize: 11,
@@ -253,13 +268,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
+  routeVisual: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dash: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      height: 1,
+      backgroundColor: colors.gray[100],
+  },
   label: {
     fontSize: 10,
     color: colors.gray[400],
     textTransform: 'uppercase',
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 6,
   },
   val: {
     fontSize: 18,
@@ -286,9 +313,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 20,
+    paddingTop: 24,
     borderTopWidth: 1,
-    borderTopColor: colors.gray[100],
+    borderTopColor: colors.gray[50],
   },
   totalLabel: {
     fontSize: 15,
@@ -301,19 +328,22 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '900',
     color: colors.gray[800],
-    marginBottom: 16,
+    marginBottom: 20,
     marginLeft: 4,
+  },
+  methodsList: {
+      marginBottom: 20,
   },
   methodCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.white,
-    padding: 18,
-    borderRadius: 24,
-    marginBottom: 14,
+    padding: 20,
+    borderRadius: 28,
+    marginBottom: 16,
     ...shadows.md,
     borderWidth: 2,
     borderColor: 'transparent',
@@ -322,36 +352,53 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   methodIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
+    width: 60,
+    height: 60,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
   methodName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     color: colors.gray[800],
   },
   methodSub: {
     fontSize: 12,
     color: colors.gray[400],
-    marginTop: 2,
+    marginTop: 4,
     fontWeight: '500',
+  },
+  radio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: colors.gray[200],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioActive: {
+    borderColor: colors.primary,
+  },
+  radioInner: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: colors.primary,
   },
   securityNote: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
+    marginTop: 24,
   },
   securityText: {
-    fontSize: 11,
-    color: colors.success,
-    marginLeft: 8,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontSize: 12,
+    color: colors.gray[400],
+    marginLeft: 10,
+    fontWeight: '600',
   },
 });
 

@@ -69,7 +69,7 @@ const SplashScreen = () => {
 
       <Animated.View style={[styles.textArea, { opacity: textFade }]}>
         <Text style={styles.appName}>EA Coach</Text>
-        <Text style={styles.tagline}>Premium Travel Made Simple</Text>
+        <Text style={styles.tagline}>Travel around East Africa with ease</Text>
       </Animated.View>
 
       <View style={styles.footer}>
@@ -86,7 +86,7 @@ const SplashScreen = () => {
             }
           ]} />
         </View>
-        <Text style={styles.footerText}>Secure Connection</Text>
+        <Text style={styles.footerText}>Loading...</Text>
       </View>
     </LinearGradient>
   );

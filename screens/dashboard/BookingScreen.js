@@ -18,10 +18,10 @@ import { useAuth } from '../../context/AuthContext';
 import { getBuses } from '../../api/busApi';
 import { createBooking } from '../../api/dashboardApi';
 import { colors, shadows } from '../../styles/colors';
-import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
+import Button from '../../components/common/Button';
+import Input from '../../components/common/Input';
 
 const LOCATIONS = [
   "Kampala", "Jinja", "Mbarara", "Gulu", "Lira", "Arua", "Masaka", "Mbale",
@@ -31,40 +31,35 @@ const LOCATIONS = [
 
 const BookingScreen = ({ route, navigation }) => {
   const { user } = useAuth();
-  
-  // 1: Search, 2: Seats, 3: Passengers, 4: Payment, 5: Confirmation
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // Search Data
+  
+  // Search data
   const [searchData, setSearchData] = useState({
-    from: route.params?.from || 'Kampala',
-    to: route.params?.to || 'Nairobi',
-    date: route.params?.date ? new Date(route.params.date) : new Date(),
+    from: route?.params?.from || 'Kampala',
+    to: route?.params?.to || 'Nairobi',
+    date: route?.params?.date ? new Date(route.params.date) : new Date(),
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [availableBuses, setAvailableBuses] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
 
-  // Selections
+  // Selection
   const [selectedBus, setSelectedBus] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [passengers, setPassengers] = useState([]);
   const [bookingId, setBookingId] = useState(null);
 
   const handleSearch = async () => {
-    if (!searchData.from || !searchData.to) {
-      setError('Please select both origin and destination.');
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
       const res = await getBuses({ from: searchData.from, to: searchData.to });
-      if (res.success) {
-        setAvailableBuses(res.data);
+      if (res.success && res.data && res.data.length > 0) {
+        setSearchResults(res.data);
+        setCurrentStep(2);
       } else {
-        setError(res.error || 'No buses found for this route.');
+        setError(res.error || 'No buses found for this route');
       }
     } catch (err) {
       setError('An error occurred during search.');
@@ -75,14 +70,22 @@ const BookingScreen = ({ route, navigation }) => {
 
   const handleCreateBooking = async (method) => {
     setLoading(true);
+    setError(null);
     try {
       const totalAmount = selectedSeats.length * selectedBus.route.price;
       const passengerList = passengers.map((p, i) => ({
         name: p.name.trim(),
         age: parseInt(p.age),
         gender: p.gender,
+        phone: p.phone.trim(),
+        idNumber: p.idNumber?.trim() || 'N/A',
         seatNumber: selectedSeats[i].toString()
       }));
+
+      let mappedMethod = method;
+      if (method === 'mtn' || method === 'airtel') mappedMethod = 'mobile_money';
+      if (method === 'card') mappedMethod = 'card';
+      if (method === 'cash') mappedMethod = 'cash';
 
       const res = await createBooking({
         busId: selectedBus._id,
@@ -93,17 +96,18 @@ const BookingScreen = ({ route, navigation }) => {
         passengers: passengerList,
         totalSeats: selectedSeats.length,
         totalAmount,
-        paymentMethod: method
+        paymentMethod: mappedMethod
       });
 
       if (res.success && res.data) {
         setBookingId(res.data.bookingId || res.data._id);
-        setCurrentStep(5);
+        setCurrentStep(6);
       } else {
         setError(res.error || 'Booking failed');
       }
     } catch (err) {
-      setError('Failed to finalize booking');
+      console.error('Wizard handleCreateBooking error:', err);
+      setError('Failed to finalize booking. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -118,7 +122,10 @@ const BookingScreen = ({ route, navigation }) => {
     >
       <SafeAreaView edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => currentStep > 1 ? setCurrentStep(currentStep - 1) : navigation.goBack()}>
+          <TouchableOpacity 
+            style={styles.backBtn} 
+            onPress={() => currentStep > 1 ? setCurrentStep(currentStep - 1) : navigation.goBack()}
+          >
             <Icon name="chevron-left" size={24} color={colors.white} />
           </TouchableOpacity>
           <View>
@@ -161,148 +168,184 @@ const BookingScreen = ({ route, navigation }) => {
             ))}
           </ScrollView>
 
+          <Text style={styles.searchLabel}>Travel Date</Text>
           <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowDatePicker(true)}>
             <View style={styles.dateIconWrap}>
-              <Icon name="calendar" size={20} color={colors.primary} />
+                <Icon name="calendar" size={20} color={colors.primary} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.dateLabel}>Departure Date</Text>
-              <Text style={styles.dateVal}>{searchData.date.toDateString()}</Text>
+            <View>
+                <Text style={styles.dateLabel}>Departure Date</Text>
+                <Text style={styles.dateVal}>{searchData.date.toDateString()}</Text>
             </View>
-            <Icon name="edit-2" size={16} color={colors.gray[300]} />
           </TouchableOpacity>
 
           {showDatePicker && (
             <DateTimePicker
               value={searchData.date}
               mode="date"
-              minimumDate={new Date()}
-              onChange={(e, date) => {
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(event, selectedDate) => {
                 setShowDatePicker(false);
-                if (date) setSearchData(prev => ({ ...prev, date }));
+                if (selectedDate) setSearchData(prev => ({ ...prev, date: selectedDate }));
               }}
+              minimumDate={new Date()}
             />
           )}
 
-          <Button title="Search Buses" onPress={handleSearch} loading={loading} style={styles.searchActionBtn} icon="search" />
+          <Button 
+            title="Search Buses" 
+            onPress={handleSearch} 
+            loading={loading} 
+            style={styles.searchActionBtn}
+            icon="search"
+          />
         </View>
 
-        {availableBuses.length > 0 ? (
-          <View style={styles.resultsArea}>
-            <Text style={styles.resultsTitle}>Found {availableBuses.length} options</Text>
-            {availableBuses.map(bus => (
-              <TouchableOpacity 
-                key={bus._id} 
-                style={styles.busCard}
-                activeOpacity={0.8}
-                onPress={() => {
-                  setSelectedBus(bus);
-                  setCurrentStep(2);
-                }}
-              >
-                <View style={styles.busCardHeader}>
-                  <View style={styles.operatorBox}>
-                    <View style={styles.operatorIcon}>
-                       <Icon name="truck" size={18} color={colors.primary} />
-                    </View>
-                    <View>
-                      <Text style={styles.operatorName}>{bus.operator?.name || 'Bus'}</Text>
-                      <Text style={styles.busTypeLabel}>{bus.busType}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.priceTag}>UGX {bus.route.price.toLocaleString()}</Text>
-                </View>
-                
-                <View style={styles.routeFlow}>
-                  <View>
-                    <Text style={styles.routeTime}>{bus.route.departureTime}</Text>
-                    <Text style={styles.routeCity}>{bus.route.from}</Text>
-                  </View>
-                  <View style={styles.routeVisual}>
-                    <View style={styles.routeDot} />
-                    <View style={styles.routeLine} />
-                    <Icon name="chevron-right" size={16} color={colors.gray[300]} />
-                    <View style={styles.routeLine} />
-                    <View style={[styles.routeDot, { backgroundColor: colors.primary }]} />
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.routeTime}>{bus.route.arrivalTime}</Text>
-                    <Text style={styles.routeCity}>{bus.route.to}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.busCardFooter}>
-                   <View style={styles.footerInfo}>
-                      <Icon name="users" size={12} color={colors.success} />
-                      <Text style={styles.footerInfoText}>{bus.availableSeats ?? bus.totalSeats} seats available</Text>
-                   </View>
-                   <View style={styles.amenityRow}>
-                      {bus.amenities?.wifi && <Icon name="wifi" size={14} color={colors.gray[300]} style={{ marginLeft: 8 }} />}
-                      {bus.amenities?.usbCharging && <Icon name="zap" size={14} color={colors.gray[300]} style={{ marginLeft: 8 }} />}
-                   </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : error ? (
-           <View style={styles.emptyResults}>
-              <Icon name="alert-circle" size={40} color={colors.gray[200]} />
-              <Text style={styles.emptyTitle}>No Results Found</Text>
-              <Text style={styles.emptySub}>Try different locations or dates.</Text>
-           </View>
-        ) : null}
+        {error && <Text style={styles.errorText}>{error}</Text>}
       </ScrollView>
     </View>
   );
 
+  const renderResultsStep = () => (
+    <View style={{ flex: 1 }}>
+      {renderHeader("Select Bus", `${searchResults.length} buses available`)}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {searchResults.map((bus) => (
+          <TouchableOpacity 
+            key={bus._id} 
+            style={styles.busCard}
+            onPress={() => {
+              setSelectedBus(bus);
+              setCurrentStep(3);
+            }}
+          >
+            <View style={styles.busCardTop}>
+                <View style={styles.operatorInfo}>
+                    <Text style={styles.operatorName}>{bus.operator?.name || 'Bus'}</Text>
+                    <Text style={styles.busType}>{bus.busType}</Text>
+                </View>
+                <Text style={styles.busPrice}>UGX {bus.route.price.toLocaleString()}</Text>
+            </View>
+            <View style={styles.busDivider} />
+            <View style={styles.busCardBottom}>
+                <View style={styles.timeInfo}>
+                    <Icon name="clock" size={14} color={colors.primary} />
+                    <Text style={styles.timeVal}>{bus.route.departureTime}</Text>
+                </View>
+                <View style={styles.seatInfo}>
+                    <Icon name="users" size={14} color={colors.gray[400]} />
+                    <Text style={styles.seatVal}>{bus.availableSeats ?? bus.totalSeats ?? 48} seats left</Text>
+                </View>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+
+  const toggleSeat = (seatNum) => {
+    const occupiedSeats = [5, 12, 18];
+    if (occupiedSeats.includes(seatNum)) return;
+    if (selectedSeats.includes(seatNum)) {
+      setSelectedSeats(prev => prev.filter(s => s !== seatNum));
+    } else {
+      if (selectedSeats.length >= 5) {
+        Alert.alert('Limit Reached', 'Maximum 5 seats allowed per booking.');
+        return;
+      }
+      setSelectedSeats(prev => [...prev, seatNum]);
+    }
+  };
+
+  const renderSeatItem = (seatNum) => {
+    const isSelected = selectedSeats.includes(seatNum);
+    const isOccupied = [5, 12, 18].includes(seatNum);
+
+    return (
+      <TouchableOpacity
+        key={seatNum}
+        disabled={isOccupied}
+        style={[
+          styles.seatPill,
+          isSelected && styles.seatPillActive,
+          isOccupied && styles.seatPillOccupied
+        ]}
+        onPress={() => toggleSeat(seatNum)}
+        activeOpacity={0.7}
+      >
+        <Text style={[
+          styles.seatPillText,
+          isSelected && styles.seatPillTextActive,
+          isOccupied && styles.seatPillTextOccupied
+        ]}>
+          {seatNum}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
   const renderSeatStep = () => (
     <View style={{ flex: 1 }}>
-      {renderHeader("Select Seats", `${selectedBus?.operator?.name} • ${selectedBus?.route?.departureTime}`)}
-      <View style={styles.seatStepContent}>
+      {renderHeader("Select Seats", "Pick your preferred place")}
+      <View style={styles.stepContent}>
         <View style={styles.legend}>
-          <View style={styles.legendItem}><View style={[styles.legBox, { bg: colors.gray[100] }]} /><Text style={styles.legText}>Available</Text></View>
-          <View style={styles.legendItem}><View style={[styles.legBox, { bg: colors.primary }]} /><Text style={styles.legText}>Selected</Text></View>
-          <View style={styles.legendItem}><View style={[styles.legBox, { bg: colors.gray[300] }]} /><Text style={styles.legText}>Reserved</Text></View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendBox, { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.gray[200] }]} />
+            <Text style={styles.legendText}>Available</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendBox, { backgroundColor: colors.primary }]} />
+            <Text style={styles.legendText}>Selected</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendBox, { backgroundColor: colors.gray[100] }]} />
+            <Text style={styles.legendText}>Taken</Text>
+          </View>
         </View>
 
-        <ScrollView contentContainerStyle={styles.seatScroll} showsVerticalScrollIndicator={false}>
-          <View style={styles.busGraphic}>
-            <View style={styles.busFront}>
-               <Icon name="disc" size={32} color={colors.gray[200]} />
-            </View>
-            <View style={styles.seatGrid}>
-              {Array(40).fill(0).map((_, i) => {
-                const seatNum = i + 1;
-                const isSelected = selectedSeats.includes(seatNum);
-                return (
-                  <TouchableOpacity
-                    key={i}
-                    style={[styles.seatPill, isSelected && styles.seatPillActive]}
-                    onPress={() => {
-                      if (isSelected) setSelectedSeats(prev => prev.filter(s => s !== seatNum));
-                      else if (selectedSeats.length < 5) setSelectedSeats(prev => [...prev, seatNum]);
-                      else Alert.alert('Limit Reached', 'Maximum 5 seats allowed.');
-                    }}
-                  >
-                    <Text style={[styles.seatPillText, isSelected && styles.seatPillTextActive]}>{seatNum}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+           <View style={styles.busFrame}>
+                <View style={styles.driverRow}>
+                   <View style={styles.steering}><Icon name="disc" size={24} color={colors.gray[300]} /></View>
+                   <Text style={styles.frontLabel}>FRONT</Text>
+                </View>
+                <View style={styles.seatsGrid}>
+                    <View style={styles.seatColumn}>
+                      {Array.from({ length: 12 }, (_, i) => i * 4 + 1).map(renderSeatItem)}
+                    </View>
+                    <View style={styles.seatColumn}>
+                      {Array.from({ length: 12 }, (_, i) => i * 4 + 2).map(renderSeatItem)}
+                    </View>
+                    <View style={styles.aisle}>
+                      <View style={styles.aisleLineDash} />
+                    </View>
+                    <View style={styles.seatColumn}>
+                      {Array.from({ length: 12 }, (_, i) => i * 4 + 3).map(renderSeatItem)}
+                    </View>
+                    <View style={styles.seatColumn}>
+                      {Array.from({ length: 12 }, (_, i) => i * 4 + 4).map(renderSeatItem)}
+                    </View>
+                </View>
+           </View>
         </ScrollView>
-
         <View style={styles.stepFooter}>
           <View>
-            <Text style={styles.footerSubLabel}>{selectedSeats.length} seats selected</Text>
-            <Text style={styles.footerPrice}>UGX {(selectedSeats.length * selectedBus?.route?.price).toLocaleString()}</Text>
+            <Text style={styles.footerLabel}>Total Price</Text>
+            <Text style={styles.footerPrice}>UGX {(selectedSeats.length * (selectedBus?.route?.price || 0)).toLocaleString()}</Text>
           </View>
           <Button 
             title="Next Step" 
             disabled={selectedSeats.length === 0} 
             onPress={() => {
-              setPassengers(selectedSeats.map(s => ({ name: '', age: '', gender: 'Male', seat: s })));
-              setCurrentStep(3);
+              setPassengers(selectedSeats.map(s => ({ 
+                name: '', 
+                age: '', 
+                gender: 'Male', 
+                phone: '',
+                idNumber: '',
+                seat: s 
+              })));
+              setCurrentStep(4);
             }} 
             style={styles.stepFooterBtn}
           />
@@ -322,7 +365,7 @@ const BookingScreen = ({ route, navigation }) => {
                 <Text style={styles.pTitle}>Passenger {i + 1} (Seat {p.seat})</Text>
             </View>
             <Input 
-              label="Full Name" 
+              label="Full Name *" 
               value={p.name} 
               onChangeText={txt => {
                 const newP = [...passengers];
@@ -334,7 +377,7 @@ const BookingScreen = ({ route, navigation }) => {
             <View style={styles.row}>
                 <View style={{ flex: 1, marginRight: 12 }}>
                    <Input 
-                    label="Age" 
+                    label="Age *" 
                     value={p.age} 
                     onChangeText={txt => {
                       const newP = [...passengers];
@@ -346,7 +389,7 @@ const BookingScreen = ({ route, navigation }) => {
                   />
                 </View>
                 <View style={{ flex: 1.5 }}>
-                   <Text style={styles.genderLabel}>Gender</Text>
+                   <Text style={styles.genderLabel}>Gender *</Text>
                    <View style={styles.genderGrid}>
                      {['Male', 'Female'].map(g => (
                        <TouchableOpacity 
@@ -364,12 +407,42 @@ const BookingScreen = ({ route, navigation }) => {
                    </View>
                 </View>
             </View>
+            <View style={styles.extraPInfo}>
+                <Input 
+                  label="Phone Number *" 
+                  value={p.phone} 
+                  onChangeText={txt => {
+                    const newP = [...passengers];
+                    newP[i].phone = txt;
+                    setPassengers(newP);
+                  }} 
+                  keyboardType="phone-pad"
+                  placeholder="+256"
+                />
+                <Input 
+                  label="ID Number (Optional)" 
+                  value={p.idNumber} 
+                  onChangeText={txt => {
+                    const newP = [...passengers];
+                    newP[i].idNumber = txt;
+                    setPassengers(newP);
+                  }} 
+                  placeholder="National ID"
+                  containerStyle={{ marginTop: 12 }}
+                />
+            </View>
           </View>
         ))}
         <Button 
           title="Proceed to Payment" 
-          onPress={() => setCurrentStep(4)} 
-          disabled={passengers.some(p => !p.name || !p.age)}
+          onPress={() => {
+            const isInvalid = passengers.some(p => !p.name?.trim() || !p.age || !p.phone?.trim());
+            if (isInvalid) {
+              Alert.alert('Required Fields Missing', 'Please provide a Name, Age, and Phone Number for all passengers before continuing.');
+              return;
+            }
+            setCurrentStep(5);
+          }} 
           style={styles.proceedBtn}
           icon="credit-card"
         />
@@ -384,9 +457,10 @@ const BookingScreen = ({ route, navigation }) => {
       <View style={styles.paymentContent}>
         <View style={styles.payMethods}>
           {[
-            { id: 'mobile_money', name: 'Mobile Money', icon: 'smartphone', color: '#F59E0B' },
-            { id: 'card', name: 'Card Payment', icon: 'credit-card', color: colors.primary },
-            { id: 'cash', name: 'Cash at Counter', icon: 'dollar-sign', color: colors.success },
+            { id: 'mtn', name: 'MTN Mobile Money', icon: 'smartphone', color: '#F59E0B' },
+            { id: 'airtel', name: 'Airtel Money', icon: 'smartphone', color: '#EF4444' },
+            { id: 'card', name: 'Debit/Credit Card', icon: 'credit-card', color: colors.primary },
+            { id: 'cash', name: 'Pay at Counter', icon: 'dollar-sign', color: colors.success },
           ].map(m => (
             <TouchableOpacity 
               key={m.id} 
@@ -398,78 +472,77 @@ const BookingScreen = ({ route, navigation }) => {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.payName}>{m.name}</Text>
-                <Text style={styles.paySub}>Secure and official</Text>
+                <Text style={styles.paySubText}>Click to pay instantly</Text>
               </View>
-              <Icon name="chevron-right" size={20} color={colors.gray[300]} />
+              <Icon name="chevron-right" size={18} color={colors.gray[300]} />
             </TouchableOpacity>
           ))}
         </View>
 
-        <View style={styles.totalBox}>
-          <Text style={styles.totalLabel}>Grand Total</Text>
-          <Text style={styles.totalVal}>UGX {(selectedSeats.length * selectedBus?.route?.price).toLocaleString()}</Text>
+        <View style={styles.bookingSummary}>
+           <Text style={styles.summaryTitle}>Booking Summary</Text>
+           <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Total Seats</Text>
+              <Text style={styles.summaryVal}>{selectedSeats.length}</Text>
+           </View>
+           <View style={[styles.summaryRow, { borderBottomWidth: 0 }]}>
+              <Text style={styles.summaryLabel}>Total Amount</Text>
+              <Text style={styles.summaryTotal}>UGX {(selectedSeats.length * (selectedBus?.route?.price || 0)).toLocaleString()}</Text>
+           </View>
         </View>
       </View>
     </View>
   );
 
-  const renderConfirmation = () => (
-    <View style={styles.confirmView}>
-      <StatusBar style="dark" />
-      <View style={styles.successCircle}>
-         <Icon name="check" size={40} color={colors.white} />
-      </View>
-      <Text style={styles.successTitle}>Booking Verified!</Text>
-      <Text style={styles.successSub}>Your ticket is ready and has been added to your history.</Text>
-      
-      <View style={styles.ticketCard}>
-        <View style={styles.ticketTop}>
-           <Text style={styles.tickId}>ID: {bookingId}</Text>
-           <Text style={styles.tickRoute}>{searchData.from} → {searchData.to}</Text>
-        </View>
-        <View style={styles.tickRow}>
-           <View>
-             <Text size={10} style={styles.tickLabel}>DATE</Text>
-             <Text style={styles.tickVal}>{searchData.date.toDateString()}</Text>
-           </View>
-           <View style={{ alignItems: 'flex-end' }}>
-             <Text size={10} style={styles.tickLabel}>TIME</Text>
-             <Text style={styles.tickVal}>{selectedBus?.route?.departureTime}</Text>
-           </View>
-        </View>
-        <View style={styles.tickDivider} />
-        <View style={styles.tickRow}>
-           <View>
-             <Text size={10} style={styles.tickLabel}>SEATS</Text>
-             <Text style={styles.tickVal}>{selectedSeats.join(', ')}</Text>
-           </View>
-           <View style={{ alignItems: 'flex-end' }}>
-             <Text size={10} style={styles.tickLabel}>AMOUNT</Text>
-             <Text style={styles.tickVal}>UGX {(selectedSeats.length * selectedBus?.route?.price).toLocaleString()}</Text>
-           </View>
-        </View>
-      </View>
+  const renderCompletionStep = () => (
+    <View style={styles.completionContainer}>
+       <LinearGradient
+        colors={colors.gradients.primary}
+        style={styles.completionHeader}
+       >
+         <View style={styles.successIcon}>
+           <Icon name="check" size={50} color={colors.white} />
+         </View>
+         <Text style={styles.successTitle}>Booking Initialized!</Text>
+         <Text style={styles.successSub}>Awaiting payment confirmation</Text>
+       </LinearGradient>
 
-      <Button title="Back to Dashboard" onPress={() => navigation.navigate('Home')} style={styles.finishBtn} />
+       <View style={styles.completionBody}>
+          <Text style={styles.bookingIdLabel}>YOUR BOOKING ID</Text>
+          <Text style={styles.bookingIdVal}>{bookingId}</Text>
+          
+          <Text style={styles.completionDesc}>
+            Your seats have been reserved. Please complete the payment steps on your device as prompted.
+          </Text>
+
+          <Button 
+            title="View Ticket" 
+            onPress={() => navigation.navigate('MainTabs', { screen: 'Bookings' })} 
+            style={styles.viewTicketBtn}
+          />
+          <TouchableOpacity style={styles.goHomeBtn} onPress={() => navigation.navigate('MainTabs')}>
+             <Text style={styles.goHomeText}>Back to Home</Text>
+          </TouchableOpacity>
+       </View>
     </View>
   );
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      {currentStep === 1 && renderSearchStep()}
-      {currentStep === 2 && renderSeatStep()}
-      {currentStep === 3 && renderPassengerStep()}
-      {currentStep === 4 && renderPaymentStep()}
-      {currentStep === 5 && renderConfirmation()}
-      
-      {error && (
-        <View style={styles.errorBox}>
-          <Icon name="alert-circle" size={16} color={colors.white} />
-          <Text style={styles.errorBoxText}>{error}</Text>
-          <TouchableOpacity onPress={() => setError(null)}><Icon name="x" size={16} color={colors.white} /></TouchableOpacity>
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={colors.white} />
+          <Text style={styles.loadingText}>Please wait...</Text>
         </View>
       )}
+      
+      {currentStep === 1 && renderSearchStep()}
+      {currentStep === 2 && renderResultsStep()}
+      {currentStep === 3 && renderSeatStep()}
+      {currentStep === 4 && renderPassengerStep()}
+      {currentStep === 5 && renderPaymentStep()}
+      {currentStep === 6 && renderCompletionStep()}
     </View>
   );
 };
@@ -478,6 +551,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.gray[50],
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    zIndex: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: colors.white,
+    marginTop: 16,
+    fontWeight: '700',
+    fontSize: 16,
   },
   headerArea: {
     paddingBottom: 20,
@@ -585,12 +671,6 @@ const styles = StyleSheet.create({
   searchActionBtn: {
     height: 56,
   },
-  resultsTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.gray[800],
-    marginBottom: 16,
-  },
   busCard: {
     backgroundColor: colors.white,
     borderRadius: 24,
@@ -598,182 +678,184 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     ...shadows.md,
   },
-  busCardHeader: {
+  busCardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  operatorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  operatorIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.primaryGhost,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    alignItems: 'flex-start',
   },
   operatorName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '800',
     color: colors.gray[800],
   },
-  busTypeLabel: {
-    fontSize: 11,
+  busType: {
+    fontSize: 12,
     color: colors.gray[400],
+    marginTop: 2,
     fontWeight: '600',
   },
-  priceTag: {
+  busPrice: {
     fontSize: 18,
     fontWeight: '900',
     color: colors.primary,
   },
-  routeFlow: {
+  busDivider: {
+    height: 1,
+    backgroundColor: colors.gray[50],
+    marginVertical: 16,
+  },
+  busCardBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  timeInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
   },
-  routeTime: {
-    fontSize: 18,
-    fontWeight: '800',
+  timeVal: {
+    fontSize: 14,
     color: colors.gray[800],
+    fontWeight: '700',
+    marginLeft: 8,
   },
-  routeCity: {
+  seatInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  seatVal: {
     fontSize: 13,
     color: colors.gray[400],
     fontWeight: '600',
-    marginTop: 4,
-  },
-  routeVisual: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    flex: 1,
-  },
-  routeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.gray[200],
-  },
-  routeLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.gray[100],
-    marginHorizontal: 4,
-  },
-  busCardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[50],
-  },
-  footerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  footerInfoText: {
-    fontSize: 12,
-    color: colors.success,
-    fontWeight: '700',
     marginLeft: 6,
   },
-  amenityRow: {
-    flexDirection: 'row',
-  },
-
-  // Seat Selection Styles
-  seatStepContent: {
+  stepContent: {
     flex: 1,
+  },
+  busFrame: {
+    backgroundColor: colors.white,
+    borderRadius: 32,
     padding: 24,
+    borderWidth: 1,
+    borderColor: colors.gray[100],
+    ...shadows.lg,
   },
   legend: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 8,
+    marginTop: 24,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: 12,
   },
-  legBox: {
-    width: 12,
-    height: 12,
-    borderRadius: 3,
-    marginRight: 6,
+  legendBox: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    marginRight: 8,
   },
-  legText: {
-    fontSize: 11,
+  legendText: {
+    fontSize: 12,
     color: colors.gray[500],
     fontWeight: '600',
   },
-  busGraphic: {
-    backgroundColor: colors.white,
-    borderRadius: 32,
-    padding: 24,
-    ...shadows.lg,
-  },
-  busFront: {
-    paddingBottom: 24,
-    marginBottom: 24,
+  driverRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[50],
-    alignItems: 'center',
+    marginBottom: 24,
   },
-  seatGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  seatPill: {
-    width: '22%',
+  steering: {
+    width: 44,
     height: 44,
+    borderRadius: 22,
     backgroundColor: colors.gray[50],
-    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+  },
+  frontLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.gray[300],
+    letterSpacing: 2,
+  },
+  seatsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  seatColumn: {
+    alignItems: 'center',
+  },
+  aisle: {
+    width: 32,
+    alignItems: 'center',
+  },
+  aisleLineDash: {
+    width: 2,
+    height: '100%',
+    borderWidth: 1,
+    borderColor: colors.gray[100],
+    borderStyle: 'dashed',
+  },
+  seatPill: {
+    width: 44,
+    height: 44,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.gray[100],
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   seatPillActive: {
     backgroundColor: colors.primary,
-    ...shadows.primary,
+    borderColor: colors.primary,
+  },
+  seatPillOccupied: {
+    backgroundColor: colors.gray[100],
+    borderColor: colors.gray[100],
   },
   seatPillText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
-    color: colors.gray[600],
+    color: colors.gray[400],
   },
   seatPillTextActive: {
     color: colors.white,
   },
+  seatPillTextOccupied: {
+    color: colors.gray[300],
+  },
   stepFooter: {
+    padding: 24,
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[50],
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
+    ...shadows.lg,
   },
-  footerSubLabel: {
-    fontSize: 13,
+  footerLabel: {
+    fontSize: 12,
     color: colors.gray[400],
     fontWeight: '600',
   },
   footerPrice: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '900',
-    color: colors.gray[900],
+    color: colors.gray[800],
   },
   stepFooterBtn: {
-    width: 150,
+    width: 140,
+    height: 52,
   },
-
-  // Passenger Card
   pCard: {
     backgroundColor: colors.white,
     borderRadius: 24,
@@ -796,7 +878,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   pAvatarText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: colors.primary,
   },
@@ -805,9 +887,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.gray[800],
   },
+  row: {
+    flexDirection: 'row',
+    marginTop: 12,
+  },
   genderLabel: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.gray[700],
     marginBottom: 8,
     marginLeft: 4,
@@ -815,15 +901,15 @@ const styles = StyleSheet.create({
   genderGrid: {
     flexDirection: 'row',
     backgroundColor: colors.gray[50],
-    borderRadius: 12,
+    borderRadius: 10,
     padding: 4,
   },
   genBtn: {
     flex: 1,
-    height: 44,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: 8,
   },
   genBtnActive: {
     backgroundColor: colors.white,
@@ -837,166 +923,159 @@ const styles = StyleSheet.create({
   genTxtActive: {
     color: colors.primary,
   },
-  proceedBtn: {
-    height: 56,
+  extraPInfo: {
+      marginTop: 20,
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.gray[50],
   },
-
-  // Payment
+  proceedBtn: {
+    height: 60,
+    borderRadius: 20,
+  },
   paymentContent: {
     flex: 1,
     padding: 24,
+  },
+  payMethods: {
+      marginBottom: 32,
   },
   payCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.white,
-    padding: 20,
+    padding: 18,
     borderRadius: 24,
-    marginBottom: 16,
+    marginBottom: 14,
     ...shadows.md,
   },
   payIcon: {
     width: 48,
     height: 48,
-    borderRadius: 16,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
   payName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: colors.gray[800],
   },
-  paySub: {
-    fontSize: 12,
-    color: colors.gray[400],
-    marginTop: 2,
-    fontWeight: '500',
+  paySubText: {
+      fontSize: 11,
+      color: colors.gray[400],
+      marginTop: 2,
+      fontWeight: '500',
   },
-  totalBox: {
-    marginTop: 'auto',
-    backgroundColor: colors.white,
-    padding: 24,
-    borderRadius: 24,
-    alignItems: 'center',
-    ...shadows.lg,
+  bookingSummary: {
+      backgroundColor: colors.white,
+      padding: 24,
+      borderRadius: 28,
+      ...shadows.lg,
   },
-  totalLabel: {
-    fontSize: 14,
-    color: colors.gray[400],
-    fontWeight: '700',
-    textTransform: 'uppercase',
+  summaryTitle: {
+      fontSize: 14,
+      fontWeight: '900',
+      color: colors.gray[800],
+      marginBottom: 16,
   },
-  totalVal: {
-    fontSize: 32,
+  summaryRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.gray[50],
+  },
+  summaryLabel: {
+      fontSize: 13,
+      color: colors.gray[400],
+      fontWeight: '600',
+  },
+  summaryVal: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: colors.gray[800],
+  },
+  summaryTotal: {
+    fontSize: 18,
     fontWeight: '900',
     color: colors.primary,
-    marginTop: 4,
   },
-
-  // Success Confirmation
-  confirmView: {
-    flex: 1,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
+  completionContainer: {
+      flex: 1,
+      backgroundColor: colors.white,
   },
-  successCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.success,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-    ...shadows.md,
+  completionHeader: {
+      paddingVertical: 80,
+      alignItems: 'center',
+      borderBottomLeftRadius: 40,
+      borderBottomRightRadius: 40,
+  },
+  successIcon: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 24,
   },
   successTitle: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: colors.gray[900],
-    marginBottom: 12,
+      fontSize: 28,
+      fontWeight: '900',
+      color: colors.white,
   },
   successSub: {
-    fontSize: 15,
-    color: colors.gray[500],
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 40,
+      fontSize: 15,
+      color: 'rgba(255,255,255,0.7)',
+      marginTop: 8,
+      fontWeight: '600',
   },
-  ticketCard: {
-    width: '100%',
-    backgroundColor: colors.gray[50],
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: 40,
-    borderWidth: 1,
-    borderColor: colors.gray[100],
+  completionBody: {
+      padding: 40,
+      alignItems: 'center',
   },
-  ticketTop: {
-    marginBottom: 20,
+  bookingIdLabel: {
+      fontSize: 12,
+      color: colors.gray[400],
+      fontWeight: '900',
+      letterSpacing: 2,
+      marginBottom: 8,
   },
-  tickId: {
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: '800',
+  bookingIdVal: {
+      fontSize: 32,
+      fontWeight: '900',
+      color: colors.gray[900],
+      letterSpacing: 2,
   },
-  tickRoute: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: colors.gray[800],
-    marginTop: 4,
+  completionDesc: {
+      fontSize: 14,
+      color: colors.gray[500],
+      textAlign: 'center',
+      marginTop: 24,
+      lineHeight: 22,
+      paddingHorizontal: 20,
   },
-  tickRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+  viewTicketBtn: {
+      width: '100%',
+      marginTop: 40,
+      height: 56,
+      borderRadius: 18,
   },
-  tickLabel: {
-    fontSize: 10,
-    color: colors.gray[400],
-    fontWeight: '800',
-    textTransform: 'uppercase',
+  goHomeBtn: {
+      marginTop: 16,
   },
-  tickVal: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: colors.gray[800],
-    marginTop: 4,
+  goHomeText: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.primary,
   },
-  tickDivider: {
-    height: 1,
-    backgroundColor: colors.gray[200],
-    marginVertical: 4,
-    marginBottom: 20,
-    borderStyle: 'dashed',
-    borderRadius: 1,
-  },
-  finishBtn: {
-    width: '100%',
-    height: 56,
-  },
-
-  // Error
-  errorBox: {
-    position: 'absolute',
-    bottom: 24,
-    left: 20,
-    right: 20,
-    backgroundColor: colors.danger,
-    padding: 16,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    ...shadows.lg,
-  },
-  errorBoxText: {
-    color: colors.white,
-    flex: 1,
-    marginHorizontal: 12,
-    fontWeight: '600',
+  errorText: {
+      color: colors.danger,
+      textAlign: 'center',
+      marginTop: 16,
+      fontWeight: '600',
   },
 });
 

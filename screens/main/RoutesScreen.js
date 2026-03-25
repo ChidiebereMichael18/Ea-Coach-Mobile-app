@@ -161,7 +161,7 @@ const RoutesScreen = ({ navigation }) => {
                   </View>
                   <View style={styles.tag}>
                     <Icon name="users" size={12} color={colors.gray[500]} />
-                    <Text style={styles.tagText}>{route.capacity || '—'} seats</Text>
+                    <Text style={styles.tagText}>{route.totalSeats || 48} seats</Text>
                   </View>
                 </View>
 

@@ -20,7 +20,14 @@ import { StatusBar } from 'expo-status-bar';
 const PassengerDetailsScreen = ({ route, navigation }) => {
   const { bus, selectedSeats, from, to, date } = route.params;
   const [passengers, setPassengers] = useState(
-    selectedSeats.map(seat => ({ name: '', age: '', gender: 'Male', seat }))
+    selectedSeats.map(seat => ({ 
+      name: '', 
+      age: '', 
+      gender: 'Male', 
+      phone: '', 
+      idNumber: '',
+      seat 
+    }))
   );
 
   const handleUpdate = (index, field, value) => {
@@ -30,9 +37,9 @@ const PassengerDetailsScreen = ({ route, navigation }) => {
   };
 
   const handleContinue = () => {
-    const isInvalid = passengers.some(p => !p.name.trim() || !p.age);
+    const isInvalid = passengers.some(p => !p.name.trim() || !p.age || !p.phone.trim());
     if (isInvalid) {
-      Alert.alert('Missing Info', 'Please fill in all passenger details before continuing.');
+      Alert.alert('Missing Info', 'Name, Age, and Phone are required for all passengers.');
       return;
     }
     navigation.navigate('Payment', {
@@ -95,8 +102,8 @@ const PassengerDetailsScreen = ({ route, navigation }) => {
               </View>
 
               <Input
-                label="Full Name"
-                placeholder="As per ID"
+                label="Full Name *"
+                placeholder="Name as per ID"
                 value={p.name}
                 onChangeText={(txt) => handleUpdate(i, 'name', txt)}
                 containerStyle={styles.inputSpacing}
@@ -105,7 +112,7 @@ const PassengerDetailsScreen = ({ route, navigation }) => {
               <View style={styles.row}>
                 <View style={{ flex: 1, marginRight: 16 }}>
                   <Input
-                    label="Age"
+                    label="Age *"
                     placeholder="25"
                     keyboardType="numeric"
                     value={p.age}
@@ -113,7 +120,7 @@ const PassengerDetailsScreen = ({ route, navigation }) => {
                   />
                 </View>
                 <View style={{ flex: 1.5 }}>
-                  <Text style={styles.inputLabel}>Gender</Text>
+                  <Text style={styles.inputLabel}>Gender *</Text>
                   <View style={styles.genderGrid}>
                     <TouchableOpacity 
                       style={[styles.genderBtn, p.gender === 'Male' && styles.genderBtnActive]}
@@ -129,6 +136,23 @@ const PassengerDetailsScreen = ({ route, navigation }) => {
                     </TouchableOpacity>
                   </View>
                 </View>
+              </View>
+
+              <View style={styles.idSection}>
+                <Input
+                    label="Phone Number *"
+                    placeholder="+256 000 000 000"
+                    keyboardType="phone-pad"
+                    value={p.phone}
+                    onChangeText={(txt) => handleUpdate(i, 'phone', txt)}
+                    containerStyle={styles.inputSpacing}
+                />
+                <Input
+                    label="ID Number (Optional)"
+                    placeholder="National ID or Passport"
+                    value={p.idNumber}
+                    onChangeText={(txt) => handleUpdate(i, 'idNumber', txt)}
+                />
               </View>
             </View>
           ))}
@@ -250,6 +274,7 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
+    marginBottom: 16,
   },
   inputLabel: {
     fontSize: 13,
@@ -282,6 +307,12 @@ const styles = StyleSheet.create({
   },
   genderBtnTextActive: {
     color: colors.primary,
+  },
+  idSection: {
+      marginTop: 8,
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.gray[50],
   },
   continueBtn: {
     marginTop: 10,
