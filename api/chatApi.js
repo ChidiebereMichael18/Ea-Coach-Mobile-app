@@ -7,7 +7,7 @@ import api from '../services/api';
  */
 export async function sendChatMessage(message) {
   try {
-    const response = await api.post('/chat/support', { message });
+    const response = await api.post('/chat', { message });
     return { success: true, data: response.data };
   } catch (error) {
     return { 

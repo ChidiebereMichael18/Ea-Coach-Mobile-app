@@ -30,10 +30,10 @@ const LOCATIONS = [
 ];
 
 const PAYMENT_METHODS = [
-  { id: 'mtn', name: 'MTN Mobile Money', icon: 'smartphone', color: '#F59E0B', bgColor: '#FEF3C7', sub: 'Instant via MoMo prompt' },
-  { id: 'airtel', name: 'Airtel Money', icon: 'smartphone', color: '#EF4444', bgColor: '#FEE2E2', sub: 'Instant via Airtel prompt' },
-  { id: 'card', name: 'Debit/Credit Card', icon: 'credit-card', color: colors.primary, bgColor: colors.primaryGhost, sub: 'Visa or Mastercard' },
-  { id: 'cash', name: 'Pay at Counter', icon: 'dollar-sign', color: colors.success, bgColor: '#D1FAE5', sub: 'Book now, pay later' },
+  { id: 'mtn', name: 'MTN Mobile Money', icon: 'smartphone', sub: 'Instant via MoMo prompt' },
+  { id: 'airtel', name: 'Airtel Money', icon: 'smartphone', sub: 'Instant via Airtel prompt' },
+  { id: 'card', name: 'Debit/Credit Card', icon: 'credit-card', sub: 'Visa or Mastercard' },
+  { id: 'cash', name: 'Pay at Counter', icon: 'dollar-sign', sub: 'Book now, pay later' },
 ];
 
 const BookingScreen = ({ route, navigation }) => {
@@ -495,9 +495,9 @@ const BookingScreen = ({ route, navigation }) => {
               leftIcon="smartphone"
               containerStyle={styles.inputSpacing}
             />
-            <View style={[styles.infoBox, { backgroundColor: method.color + '20' }]}>
-              <Icon name="info" size={16} color={method.color} />
-              <Text style={[styles.infoText, { color: method.color }]}>
+            <View style={styles.infoBox}>
+              <Icon name="info" size={14} color={colors.primary} />
+              <Text style={styles.infoText}>
                 You will receive a prompt to authorize UGX {(selectedSeats.length * (selectedBus?.route?.price || 0)).toLocaleString()}
               </Text>
             </View>
@@ -565,17 +565,14 @@ const BookingScreen = ({ route, navigation }) => {
       case 'cash':
         return (
           <View style={styles.formContainer}>
-            <View style={[styles.bankDetails, { backgroundColor: method.color + '20' }]}>
-              <View style={styles.bankHeader}>
-                <Icon name="info" size={20} color={method.color} />
-                <Text style={[styles.bankTitle, { color: method.color }]}>Pay at Counter</Text>
-              </View>
-              <Text style={styles.bankNote}>
-                Your seats will be held. You must pay at the bus station counter at least 30 minutes before departure or your reservation will be automatically cancelled.
+            <View style={styles.cashInfo}>
+              <Icon name="info" size={20} color={colors.primary} />
+              <Text style={styles.cashText}>
+                Your seats will be held for 30 minutes. Pay at the counter before departure to confirm your booking.
               </Text>
             </View>
             <Button 
-              title={`Confirm Booking`} 
+              title="Confirm Booking" 
               onPress={() => handleCreateBooking(method.id)} 
               style={styles.payButton}
               icon="check-circle"
@@ -598,28 +595,27 @@ const BookingScreen = ({ route, navigation }) => {
               <TouchableOpacity 
                 style={[
                   styles.methodCard,
-                  { backgroundColor: method.bgColor },
                   expandedMethod === method.id && styles.methodCardExpanded
                 ]}
                 activeOpacity={0.8}
                 onPress={() => toggleExpand(method.id)}
               >
-                <View style={[styles.methodIcon, { backgroundColor: method.color + '20' }]}>
-                  <Icon name={method.icon} size={24} color={method.color} />
+                <View style={styles.methodIcon}>
+                  <Icon name={method.icon} size={22} color={colors.primary} />
                 </View>
                 <View style={styles.methodInfo}>
-                  <Text style={[styles.methodName, { color: method.color }]}>{method.name}</Text>
+                  <Text style={styles.methodName}>{method.name}</Text>
                   <Text style={styles.methodSub}>{method.sub}</Text>
                 </View>
                 <Icon 
                   name={expandedMethod === method.id ? "chevron-up" : "chevron-down"} 
                   size={20} 
-                  color={method.color} 
+                  color={colors.gray[400]} 
                 />
               </TouchableOpacity>
               
               {expandedMethod === method.id && (
-                <View style={[styles.expandedForm, { backgroundColor: method.bgColor }]}>
+                <View style={styles.expandedForm}>
                   {renderPaymentForm(method)}
                 </View>
               )}
@@ -651,16 +647,16 @@ const BookingScreen = ({ route, navigation }) => {
          <View style={styles.successIcon}>
            <Icon name="check" size={50} color={colors.white} />
          </View>
-         <Text style={styles.successTitle}>Booking Initialized!</Text>
-         <Text style={styles.successSub}>Awaiting payment confirmation</Text>
+         <Text style={styles.successTitle}>Booking Confirmed!</Text>
+         <Text style={styles.successSub}>Your seats have been reserved</Text>
        </LinearGradient>
 
        <View style={styles.completionBody}>
-          <Text style={styles.bookingIdLabel}>YOUR BOOKING ID</Text>
+          <Text style={styles.bookingIdLabel}>BOOKING ID</Text>
           <Text style={styles.bookingIdVal}>{bookingId}</Text>
           
           <Text style={styles.completionDesc}>
-            Your seats have been reserved. Please complete the payment steps on your device as prompted.
+            Your booking has been successfully created. You can view your ticket details in the Bookings section.
           </Text>
 
           <Button 
@@ -1089,129 +1085,138 @@ const styles = StyleSheet.create({
       marginBottom: 32,
   },
   methodWrapper: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   methodCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    borderRadius: 28,
-    ...shadows.md,
+    backgroundColor: colors.white,
+    padding: 18,
+    borderRadius: 20,
+    ...shadows.sm,
+    borderWidth: 1,
+    borderColor: colors.gray[100],
   },
   methodCardExpanded: {
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
   },
   methodIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 18,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: colors.primaryGhost,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
   methodInfo: {
     flex: 1,
   },
   methodName: {
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 4,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.gray[800],
+    marginBottom: 2,
   },
   methodSub: {
-    fontSize: 12,
-    color: colors.gray[500],
+    fontSize: 11,
+    color: colors.gray[400],
     fontWeight: '500',
   },
   expandedForm: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    ...shadows.md,
+    backgroundColor: colors.white,
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: colors.gray[100],
+    ...shadows.sm,
   },
   formContainer: {
-    marginTop: 8,
+    marginTop: 12,
   },
   inputSpacing: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   rowContainer: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   halfWidth: {
     flex: 1,
   },
   infoBox: {
     flexDirection: 'row',
+    backgroundColor: colors.primaryGhost,
     padding: 12,
     borderRadius: 12,
-    marginBottom: 20,
+    marginBottom: 16,
     alignItems: 'center',
     gap: 8,
   },
   infoText: {
     fontSize: 12,
-    fontWeight: '600',
+    color: colors.primary,
+    fontWeight: '500',
     flex: 1,
   },
-  payButton: {
-    marginTop: 8,
-  },
-  bankDetails: {
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 20,
-  },
-  bankHeader: {
+  cashInfo: {
     flexDirection: 'row',
+    backgroundColor: colors.gray[50],
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 16,
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: 10,
   },
-  bankTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  bankNote: {
-    fontSize: 13,
+  cashText: {
+    fontSize: 12,
     color: colors.gray[600],
-    lineHeight: 20,
+    fontWeight: '500',
+    flex: 1,
+    lineHeight: 18,
+  },
+  payButton: {
+    marginTop: 4,
   },
   bookingSummary: {
     backgroundColor: colors.white,
-    padding: 24,
-    borderRadius: 28,
-    ...shadows.lg,
+    padding: 20,
+    borderRadius: 24,
+    ...shadows.md,
   },
   summaryTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: colors.gray[800],
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.gray[600],
     marginBottom: 16,
+    letterSpacing: 0.5,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[50],
   },
   summaryLabel: {
     fontSize: 13,
-    color: colors.gray[400],
-    fontWeight: '600',
+    color: colors.gray[500],
+    fontWeight: '500',
   },
   summaryVal: {
     fontSize: 14,
-    fontWeight: '800',
-    color: colors.gray[800],
+    fontWeight: '600',
+    color: colors.gray[700],
   },
   summaryTotal: {
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '800',
     color: colors.primary,
   },
   completionContainer: {
@@ -1219,68 +1224,67 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   completionHeader: {
-    paddingVertical: 80,
+    paddingVertical: 60,
     alignItems: 'center',
-    borderBottomLeftRadius: 40,
-    borderBottomRightRadius: 40,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
   successIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   successTitle: {
-    fontSize: 28,
-    fontWeight: '900',
+    fontSize: 24,
+    fontWeight: '800',
     color: colors.white,
   },
   successSub: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.7)',
-    marginTop: 8,
-    fontWeight: '600',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 6,
+    fontWeight: '500',
   },
   completionBody: {
-    padding: 40,
+    padding: 32,
     alignItems: 'center',
   },
   bookingIdLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.gray[400],
-    fontWeight: '900',
-    letterSpacing: 2,
+    fontWeight: '700',
+    letterSpacing: 1.5,
     marginBottom: 8,
   },
   bookingIdVal: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: colors.gray[900],
-    letterSpacing: 2,
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.gray[800],
+    letterSpacing: 1,
   },
   completionDesc: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.gray[500],
     textAlign: 'center',
-    marginTop: 24,
-    lineHeight: 22,
-    paddingHorizontal: 20,
+    marginTop: 20,
+    lineHeight: 20,
   },
   viewTicketBtn: {
     width: '100%',
-    marginTop: 40,
-    height: 56,
-    borderRadius: 18,
+    marginTop: 32,
+    height: 52,
+    borderRadius: 16,
   },
   goHomeBtn: {
-    marginTop: 16,
+    marginTop: 14,
   },
   goHomeText: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.primary,
   },
   errorText: {
