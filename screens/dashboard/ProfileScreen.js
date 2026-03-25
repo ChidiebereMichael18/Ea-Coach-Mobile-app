@@ -5,8 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
-  Image,
   Switch,
   Alert,
   KeyboardAvoidingView,
@@ -76,7 +74,9 @@ const ProfileScreen = () => {
             colors={colors.gradients.primary}
             style={styles.avatarLarge}
           >
-            <Text style={styles.avatarText}>{formData.name?.charAt(0).toUpperCase()}</Text>
+            <Text style={styles.avatarText}>
+              {formData.name?.charAt(0).toUpperCase() || 'U'}
+            </Text>
           </LinearGradient>
           {isEditing && (
             <TouchableOpacity style={styles.editAvatarBtn}>
@@ -84,8 +84,10 @@ const ProfileScreen = () => {
             </TouchableOpacity>
           )}
         </View>
-        <Text style={styles.userNameHeader}>{user?.name || 'User'}</Text>
-        <Text style={styles.userSince}>Member since {user?.createdAt ? new Date(user.createdAt).getFullYear() : '2024'}</Text>
+        <Text style={styles.userNameHeader}>{formData.name || 'User'}</Text>
+        <Text style={styles.userSince}>
+          Member since {user?.createdAt ? new Date(user.createdAt).getFullYear() : '2026'}
+        </Text>
       </View>
 
       <View style={styles.formSection}>
@@ -101,7 +103,7 @@ const ProfileScreen = () => {
           label="Email Address"
           value={formData.email}
           onChangeText={(txt) => setFormData({ ...formData, email: txt })}
-          editable={false} // Email usually not editable directly
+          editable={false}
           leftIcon="mail"
           containerStyle={styles.inputSpacing}
         />
@@ -116,17 +118,17 @@ const ProfileScreen = () => {
         />
         
         {isEditing ? (
-          <View style={styles.actionRow}>
+          <View style={styles.buttonRow}>
             <Button 
-                title="Cancel" 
-                variant="outline" 
-                onPress={() => setIsEditing(false)} 
-                style={styles.halfBtn} 
+              title="Cancel" 
+              variant="outline" 
+              onPress={() => setIsEditing(false)} 
+              style={styles.halfButton} 
             />
             <Button 
-                title="Save Changes" 
-                onPress={handleSave} 
-                style={styles.halfBtn} 
+              title="Save Changes" 
+              onPress={handleSave} 
+              style={styles.halfButton} 
             />
           </View>
         ) : (
@@ -135,7 +137,7 @@ const ProfileScreen = () => {
             variant="outline" 
             onPress={() => setIsEditing(true)} 
             icon="edit-3"
-            style={styles.editBtn}
+            style={styles.editButton}
           />
         )}
       </View>
@@ -152,10 +154,32 @@ const ProfileScreen = () => {
       </View>
 
       <View style={styles.formSection}>
-        <Input label="Current Password" secureTextEntry placeholder="••••••••" leftIcon="lock" />
-        <Input label="New Password" secureTextEntry placeholder="••••••••" leftIcon="lock" />
-        <Input label="Confirm New Password" secureTextEntry placeholder="••••••••" leftIcon="lock" />
-        <Button title="Update Password" onPress={() => {}} style={styles.updateBtn} />
+        <Input 
+          label="Current Password" 
+          secureTextEntry 
+          placeholder="••••••••" 
+          leftIcon="lock" 
+          containerStyle={styles.inputSpacing}
+        />
+        <Input 
+          label="New Password" 
+          secureTextEntry 
+          placeholder="••••••••" 
+          leftIcon="lock" 
+          containerStyle={styles.inputSpacing}
+        />
+        <Input 
+          label="Confirm New Password" 
+          secureTextEntry 
+          placeholder="••••••••" 
+          leftIcon="lock" 
+          containerStyle={styles.inputSpacing}
+        />
+        <Button 
+          title="Update Password" 
+          onPress={() => {}} 
+          style={styles.updateButton} 
+        />
       </View>
 
       <TouchableOpacity style={styles.settingItem}>
@@ -218,10 +242,12 @@ const ProfileScreen = () => {
       <StatusBar style="light" />
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
+        style={styles.flex}
       >
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Header - Flush with top */}
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
           <LinearGradient
             colors={colors.gradients.primary}
             style={styles.headerArea}
@@ -230,9 +256,12 @@ const ProfileScreen = () => {
           >
             <SafeAreaView edges={['top']}>
               <View style={styles.header}>
-                <Text style={styles.title}>My Profile</Text>
+                <View>
+                  <Text style={styles.title}>My Profile</Text>
+                  <Text style={styles.subtitle}>Manage your account</Text>
+                </View>
                 <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-                    <Icon name="log-out" size={20} color={colors.white} />
+                  <Icon name="log-out" size={20} color={colors.white} />
                 </TouchableOpacity>
               </View>
             </SafeAreaView>
@@ -247,8 +276,8 @@ const ProfileScreen = () => {
               <TouchableOpacity
                 key={tab.id}
                 onPress={() => {
-                    setActiveTab(tab.id);
-                    setIsEditing(false);
+                  setActiveTab(tab.id);
+                  setIsEditing(false);
                 }}
                 style={[styles.tab, activeTab === tab.id && styles.activeTab]}
               >
@@ -282,8 +311,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.gray[50],
   },
+  flex: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
   headerArea: {
-    paddingBottom: 24,
+    paddingBottom: 32,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
     ...shadows.md,
@@ -293,12 +328,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 10,
+    paddingTop: 12,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: colors.white,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
   },
   logoutBtn: {
     width: 44,
@@ -314,7 +354,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     borderRadius: 20,
     padding: 6,
-    marginTop: -28, // Offset up
+    marginTop: -24,
     marginBottom: 24,
     ...shadows.md,
   },
@@ -324,7 +364,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    borderRadius: 15,
+    borderRadius: 16,
+    gap: 8,
   },
   activeTab: {
     backgroundColor: colors.primaryGhost,
@@ -333,13 +374,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.gray[400],
-    marginLeft: 8,
   },
   activeTabText: {
     color: colors.primary,
   },
   tabContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   avatarSection: {
     alignItems: 'center',
@@ -379,11 +419,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: colors.gray[900],
+    marginBottom: 4,
   },
   userSince: {
     fontSize: 14,
     color: colors.gray[400],
-    marginTop: 4,
   },
   formSection: {
     backgroundColor: colors.white,
@@ -392,17 +432,18 @@ const styles = StyleSheet.create({
     ...shadows.md,
   },
   inputSpacing: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  actionRow: {
+  buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 12,
     marginTop: 8,
   },
-  halfBtn: {
-    width: '48%',
+  halfButton: {
+    flex: 1,
   },
-  editBtn: {
+  editButton: {
     marginTop: 8,
   },
   securityWarning: {
@@ -421,7 +462,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     flex: 1,
   },
-  updateBtn: {
+  updateButton: {
     marginTop: 8,
   },
   settingItem: {
@@ -440,16 +481,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
     color: colors.gray[800],
+    marginBottom: 4,
   },
   settingSub: {
     fontSize: 12,
     color: colors.gray[400],
-    marginTop: 2,
   },
   notificationGroup: {
     backgroundColor: colors.white,
     borderRadius: 28,
-    padding: 8,
+    overflow: 'hidden',
     ...shadows.md,
   },
   switchItem: {
@@ -468,14 +509,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: colors.gray[800],
+    marginBottom: 2,
   },
   switchSub: {
     fontSize: 12,
     color: colors.gray[400],
-    marginTop: 2,
   },
   footerSpacing: {
-    height: 100,
+    height: 40,
   },
 });
 

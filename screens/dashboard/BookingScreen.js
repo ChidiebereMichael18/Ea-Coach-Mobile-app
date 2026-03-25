@@ -29,6 +29,13 @@ const LOCATIONS = [
   "Nairobi", "Kigali", "Dar es Salaam", "Dodoma", "Bujumbura", "Arusha", "Mombasa", "Kisumu"
 ];
 
+const PAYMENT_METHODS = [
+  { id: 'mtn', name: 'MTN Mobile Money', icon: 'smartphone', color: '#F59E0B', bgColor: '#FEF3C7', sub: 'Instant via MoMo prompt' },
+  { id: 'airtel', name: 'Airtel Money', icon: 'smartphone', color: '#EF4444', bgColor: '#FEE2E2', sub: 'Instant via Airtel prompt' },
+  { id: 'card', name: 'Debit/Credit Card', icon: 'credit-card', color: colors.primary, bgColor: colors.primaryGhost, sub: 'Visa or Mastercard' },
+  { id: 'cash', name: 'Pay at Counter', icon: 'dollar-sign', color: colors.success, bgColor: '#D1FAE5', sub: 'Book now, pay later' },
+];
+
 const BookingScreen = ({ route, navigation }) => {
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
@@ -49,6 +56,11 @@ const BookingScreen = ({ route, navigation }) => {
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [passengers, setPassengers] = useState([]);
   const [bookingId, setBookingId] = useState(null);
+  
+  // Payment
+  const [expandedMethod, setExpandedMethod] = useState(null);
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [cardDetails, setCardDetails] = useState({ number: '', expiry: '', cvv: '', name: '' });
 
   const handleSearch = async () => {
     setLoading(true);
@@ -68,7 +80,24 @@ const BookingScreen = ({ route, navigation }) => {
     }
   };
 
-  const handleCreateBooking = async (method) => {
+  const toggleExpand = (methodId) => {
+    if (expandedMethod === methodId) {
+      setExpandedMethod(null);
+    } else {
+      setExpandedMethod(methodId);
+    }
+  };
+
+  const handleCreateBooking = async (methodId) => {
+    if ((methodId === 'mtn' || methodId === 'airtel') && !mobileNumber) {
+      Alert.alert('Missing Field', 'Please enter your mobile money number.');
+      return;
+    }
+    if (methodId === 'card' && (!cardDetails.number || !cardDetails.expiry || !cardDetails.cvv || !cardDetails.name)) {
+      Alert.alert('Missing Fields', 'Please complete all card details before paying.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -82,10 +111,10 @@ const BookingScreen = ({ route, navigation }) => {
         seatNumber: selectedSeats[i].toString()
       }));
 
-      let mappedMethod = method;
-      if (method === 'mtn' || method === 'airtel') mappedMethod = 'mobile_money';
-      if (method === 'card') mappedMethod = 'card';
-      if (method === 'cash') mappedMethod = 'cash';
+      let mappedMethod = methodId;
+      if (methodId === 'mtn' || methodId === 'airtel') mappedMethod = 'mobile_money';
+      if (methodId === 'card') mappedMethod = 'card';
+      if (methodId === 'cash') mappedMethod = 'cash';
 
       const res = await createBooking({
         busId: selectedBus._id,
@@ -451,44 +480,163 @@ const BookingScreen = ({ route, navigation }) => {
     </View>
   );
 
+  const renderPaymentForm = (method) => {
+    switch (method.id) {
+      case 'mtn':
+      case 'airtel':
+        return (
+          <View style={styles.formContainer}>
+            <Input 
+              label="Mobile Money Number" 
+              placeholder="07XXXXXXXX" 
+              keyboardType="phone-pad" 
+              value={mobileNumber}
+              onChangeText={setMobileNumber}
+              leftIcon="smartphone"
+              containerStyle={styles.inputSpacing}
+            />
+            <View style={[styles.infoBox, { backgroundColor: method.color + '20' }]}>
+              <Icon name="info" size={16} color={method.color} />
+              <Text style={[styles.infoText, { color: method.color }]}>
+                You will receive a prompt to authorize UGX {(selectedSeats.length * (selectedBus?.route?.price || 0)).toLocaleString()}
+              </Text>
+            </View>
+            <Button 
+              title={`Pay UGX ${(selectedSeats.length * (selectedBus?.route?.price || 0)).toLocaleString()}`} 
+              onPress={() => handleCreateBooking(method.id)} 
+              style={styles.payButton}
+              icon="lock"
+            />
+          </View>
+        );
+      
+      case 'card':
+        return (
+          <View style={styles.formContainer}>
+            <Input 
+              label="Card Number" 
+              placeholder="1234 5678 9012 3456" 
+              keyboardType="numeric"
+              maxLength={19}
+              value={cardDetails.number}
+              onChangeText={val => setCardDetails({...cardDetails, number: val})}
+              leftIcon="credit-card"
+              containerStyle={styles.inputSpacing}
+            />
+            <View style={styles.rowContainer}>
+              <View style={styles.halfWidth}>
+                <Input 
+                  label="Expiry Date" 
+                  placeholder="MM/YY" 
+                  maxLength={5}
+                  value={cardDetails.expiry}
+                  onChangeText={val => setCardDetails({...cardDetails, expiry: val})}
+                />
+              </View>
+              <View style={styles.halfWidth}>
+                <Input 
+                  label="CVV" 
+                  placeholder="123" 
+                  secureTextEntry
+                  maxLength={3}
+                  keyboardType="numeric"
+                  value={cardDetails.cvv}
+                  onChangeText={val => setCardDetails({...cardDetails, cvv: val})}
+                />
+              </View>
+            </View>
+            <Input 
+              label="Cardholder Name" 
+              placeholder="Name on card" 
+              value={cardDetails.name}
+              onChangeText={val => setCardDetails({...cardDetails, name: val})}
+              leftIcon="user"
+              containerStyle={styles.inputSpacing}
+            />
+            <Button 
+              title={`Pay UGX ${(selectedSeats.length * (selectedBus?.route?.price || 0)).toLocaleString()}`} 
+              onPress={() => handleCreateBooking(method.id)} 
+              style={styles.payButton}
+              icon="lock"
+            />
+          </View>
+        );
+      
+      case 'cash':
+        return (
+          <View style={styles.formContainer}>
+            <View style={[styles.bankDetails, { backgroundColor: method.color + '20' }]}>
+              <View style={styles.bankHeader}>
+                <Icon name="info" size={20} color={method.color} />
+                <Text style={[styles.bankTitle, { color: method.color }]}>Pay at Counter</Text>
+              </View>
+              <Text style={styles.bankNote}>
+                Your seats will be held. You must pay at the bus station counter at least 30 minutes before departure or your reservation will be automatically cancelled.
+              </Text>
+            </View>
+            <Button 
+              title={`Confirm Booking`} 
+              onPress={() => handleCreateBooking(method.id)} 
+              style={styles.payButton}
+              icon="check-circle"
+            />
+          </View>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
   const renderPaymentStep = () => (
     <View style={{ flex: 1 }}>
       {renderHeader("Payment", "Choose your preferred method")}
       <View style={styles.paymentContent}>
-        <View style={styles.payMethods}>
-          {[
-            { id: 'mtn', name: 'MTN Mobile Money', icon: 'smartphone', color: '#F59E0B' },
-            { id: 'airtel', name: 'Airtel Money', icon: 'smartphone', color: '#EF4444' },
-            { id: 'card', name: 'Debit/Credit Card', icon: 'credit-card', color: colors.primary },
-            { id: 'cash', name: 'Pay at Counter', icon: 'dollar-sign', color: colors.success },
-          ].map(m => (
-            <TouchableOpacity 
-              key={m.id} 
-              style={styles.payCard}
-              onPress={() => handleCreateBooking(m.id)}
-            >
-              <View style={[styles.payIcon, { backgroundColor: m.color + '15' }]}>
-                <Icon name={m.icon} size={24} color={m.color} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.payName}>{m.name}</Text>
-                <Text style={styles.paySubText}>Click to pay instantly</Text>
-              </View>
-              <Icon name="chevron-right" size={18} color={colors.gray[300]} />
-            </TouchableOpacity>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.payMethods}>
+          {PAYMENT_METHODS.map((method) => (
+            <View key={method.id} style={styles.methodWrapper}>
+              <TouchableOpacity 
+                style={[
+                  styles.methodCard,
+                  { backgroundColor: method.bgColor },
+                  expandedMethod === method.id && styles.methodCardExpanded
+                ]}
+                activeOpacity={0.8}
+                onPress={() => toggleExpand(method.id)}
+              >
+                <View style={[styles.methodIcon, { backgroundColor: method.color + '20' }]}>
+                  <Icon name={method.icon} size={24} color={method.color} />
+                </View>
+                <View style={styles.methodInfo}>
+                  <Text style={[styles.methodName, { color: method.color }]}>{method.name}</Text>
+                  <Text style={styles.methodSub}>{method.sub}</Text>
+                </View>
+                <Icon 
+                  name={expandedMethod === method.id ? "chevron-up" : "chevron-down"} 
+                  size={20} 
+                  color={method.color} 
+                />
+              </TouchableOpacity>
+              
+              {expandedMethod === method.id && (
+                <View style={[styles.expandedForm, { backgroundColor: method.bgColor }]}>
+                  {renderPaymentForm(method)}
+                </View>
+              )}
+            </View>
           ))}
-        </View>
+        </ScrollView>
 
         <View style={styles.bookingSummary}>
-           <Text style={styles.summaryTitle}>Booking Summary</Text>
-           <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Total Seats</Text>
-              <Text style={styles.summaryVal}>{selectedSeats.length}</Text>
-           </View>
-           <View style={[styles.summaryRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.summaryLabel}>Total Amount</Text>
-              <Text style={styles.summaryTotal}>UGX {(selectedSeats.length * (selectedBus?.route?.price || 0)).toLocaleString()}</Text>
-           </View>
+          <Text style={styles.summaryTitle}>Booking Summary</Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Total Seats</Text>
+            <Text style={styles.summaryVal}>{selectedSeats.length}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Total Amount</Text>
+            <Text style={styles.summaryTotal}>UGX {(selectedSeats.length * (selectedBus?.route?.price || 0)).toLocaleString()}</Text>
+          </View>
         </View>
       </View>
     </View>
@@ -940,62 +1088,126 @@ const styles = StyleSheet.create({
   payMethods: {
       marginBottom: 32,
   },
-  payCard: {
+  methodWrapper: {
+    marginBottom: 16,
+  },
+  methodCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
-    padding: 18,
-    borderRadius: 24,
-    marginBottom: 14,
+    padding: 20,
+    borderRadius: 28,
     ...shadows.md,
   },
-  payIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+  methodCardExpanded: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  methodIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
-  payName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: colors.gray[800],
+  methodInfo: {
+    flex: 1,
   },
-  paySubText: {
-      fontSize: 11,
-      color: colors.gray[400],
-      marginTop: 2,
-      fontWeight: '500',
+  methodName: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  methodSub: {
+    fontSize: 12,
+    color: colors.gray[500],
+    fontWeight: '500',
+  },
+  expandedForm: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    ...shadows.md,
+  },
+  formContainer: {
+    marginTop: 8,
+  },
+  inputSpacing: {
+    marginBottom: 16,
+  },
+  rowContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  halfWidth: {
+    flex: 1,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 20,
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoText: {
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  payButton: {
+    marginTop: 8,
+  },
+  bankDetails: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 20,
+  },
+  bankHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  bankTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  bankNote: {
+    fontSize: 13,
+    color: colors.gray[600],
+    lineHeight: 20,
   },
   bookingSummary: {
-      backgroundColor: colors.white,
-      padding: 24,
-      borderRadius: 28,
-      ...shadows.lg,
+    backgroundColor: colors.white,
+    padding: 24,
+    borderRadius: 28,
+    ...shadows.lg,
   },
   summaryTitle: {
-      fontSize: 14,
-      fontWeight: '900',
-      color: colors.gray[800],
-      marginBottom: 16,
+    fontSize: 14,
+    fontWeight: '900',
+    color: colors.gray[800],
+    marginBottom: 16,
   },
   summaryRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.gray[50],
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[50],
   },
   summaryLabel: {
-      fontSize: 13,
-      color: colors.gray[400],
-      fontWeight: '600',
+    fontSize: 13,
+    color: colors.gray[400],
+    fontWeight: '600',
   },
   summaryVal: {
-      fontSize: 14,
-      fontWeight: '800',
-      color: colors.gray[800],
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.gray[800],
   },
   summaryTotal: {
     fontSize: 18,
@@ -1003,79 +1215,79 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   completionContainer: {
-      flex: 1,
-      backgroundColor: colors.white,
+    flex: 1,
+    backgroundColor: colors.white,
   },
   completionHeader: {
-      paddingVertical: 80,
-      alignItems: 'center',
-      borderBottomLeftRadius: 40,
-      borderBottomRightRadius: 40,
+    paddingVertical: 80,
+    alignItems: 'center',
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
   },
   successIcon: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      backgroundColor: 'rgba(255,255,255,0.2)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 24,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
   },
   successTitle: {
-      fontSize: 28,
-      fontWeight: '900',
-      color: colors.white,
+    fontSize: 28,
+    fontWeight: '900',
+    color: colors.white,
   },
   successSub: {
-      fontSize: 15,
-      color: 'rgba(255,255,255,0.7)',
-      marginTop: 8,
-      fontWeight: '600',
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 8,
+    fontWeight: '600',
   },
   completionBody: {
-      padding: 40,
-      alignItems: 'center',
+    padding: 40,
+    alignItems: 'center',
   },
   bookingIdLabel: {
-      fontSize: 12,
-      color: colors.gray[400],
-      fontWeight: '900',
-      letterSpacing: 2,
-      marginBottom: 8,
+    fontSize: 12,
+    color: colors.gray[400],
+    fontWeight: '900',
+    letterSpacing: 2,
+    marginBottom: 8,
   },
   bookingIdVal: {
-      fontSize: 32,
-      fontWeight: '900',
-      color: colors.gray[900],
-      letterSpacing: 2,
+    fontSize: 32,
+    fontWeight: '900',
+    color: colors.gray[900],
+    letterSpacing: 2,
   },
   completionDesc: {
-      fontSize: 14,
-      color: colors.gray[500],
-      textAlign: 'center',
-      marginTop: 24,
-      lineHeight: 22,
-      paddingHorizontal: 20,
+    fontSize: 14,
+    color: colors.gray[500],
+    textAlign: 'center',
+    marginTop: 24,
+    lineHeight: 22,
+    paddingHorizontal: 20,
   },
   viewTicketBtn: {
-      width: '100%',
-      marginTop: 40,
-      height: 56,
-      borderRadius: 18,
+    width: '100%',
+    marginTop: 40,
+    height: 56,
+    borderRadius: 18,
   },
   goHomeBtn: {
-      marginTop: 16,
+    marginTop: 16,
   },
   goHomeText: {
-      fontSize: 15,
-      fontWeight: '700',
-      color: colors.primary,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.primary,
   },
   errorText: {
-      color: colors.danger,
-      textAlign: 'center',
-      marginTop: 16,
-      fontWeight: '600',
+    color: colors.danger,
+    textAlign: 'center',
+    marginTop: 16,
+    fontWeight: '600',
   },
 });
 
