@@ -11,6 +11,7 @@ import {
   Dimensions,
   Modal,
   Image,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -59,20 +60,72 @@ const BookingHistoryScreen = () => {
   };
 
   const handleCancel = async (id) => {
-    const res = await cancelBooking(id);
-    if (res.success) {
-      setModalVisible(false);
-      fetchBookings();
-    }
+    Alert.alert(
+      'Cancel Booking',
+      'Are you sure you want to cancel this booking?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes',
+          style: 'destructive',
+          onPress: async () => {
+            const res = await cancelBooking(id);
+            if (res.success) {
+              setModalVisible(false);
+              fetchBookings();
+              Alert.alert('Success', 'Booking cancelled successfully');
+            } else {
+              Alert.alert('Error', res.error || 'Failed to cancel booking');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const getStatusColor = (status) => {
-    switch (status.toLowerCase()) {
+    switch (status?.toLowerCase()) {
       case 'confirmed': return colors.success;
       case 'pending': return colors.warning;
       case 'cancelled': return colors.danger;
       default: return colors.gray[500];
     }
+  };
+
+  const getTotalPrice = (booking) => {
+    // Try different possible field names for total price
+    if (booking.totalPrice) return booking.totalPrice;
+    if (booking.totalAmount) return booking.totalAmount;
+    if (booking.amount) return booking.amount;
+    if (booking.price) return booking.price;
+    
+    // Calculate from seats and route price if available
+    if (booking.bookedSeats && booking.route?.price) {
+      return booking.bookedSeats.length * booking.route.price;
+    }
+    
+    return 0;
+  };
+
+  const getPassengerName = (booking) => {
+    // Try different possible field names for passenger name
+    if (booking.passengerName) return booking.passengerName;
+    if (booking.passengers && booking.passengers.length > 0) {
+      return booking.passengers[0].name;
+    }
+    if (booking.user?.name) return booking.user.name;
+    return 'Traveler';
+  };
+
+  const getSeats = (booking) => {
+    // Try different possible field names for seats
+    if (booking.bookedSeats) return booking.bookedSeats;
+    if (booking.seats) return booking.seats;
+    if (booking.selectedSeats) return booking.selectedSeats;
+    if (booking.passengers) {
+      return booking.passengers.map(p => p.seatNumber || p.seat);
+    }
+    return [];
   };
 
   if (loading && !refreshing) {
@@ -136,8 +189,8 @@ const BookingHistoryScreen = () => {
               <View style={styles.cardHeader}>
                 <View style={styles.routeMain}>
                   <View>
-                    <Text style={styles.cityText}>{booking.route?.from}</Text>
-                    <Text style={styles.timeText}>{booking.route?.departureTime}</Text>
+                    <Text style={styles.cityText}>{booking.route?.from || '—'}</Text>
+                    <Text style={styles.timeText}>{booking.route?.departureTime || '—'}</Text>
                   </View>
                   <View style={styles.routeVisual}>
                     <View style={styles.routeDot} />
@@ -147,7 +200,7 @@ const BookingHistoryScreen = () => {
                     <View style={[styles.routeDot, { backgroundColor: colors.primary }]} />
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.cityText}>{booking.route?.to}</Text>
+                    <Text style={styles.cityText}>{booking.route?.to || '—'}</Text>
                     <Text style={styles.timeText}>{booking.route?.arrivalTime || '—'}</Text>
                   </View>
                 </View>
@@ -162,7 +215,7 @@ const BookingHistoryScreen = () => {
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: getStatusColor(booking.bookingStatus) + '20' }]}>
                   <Text style={[styles.statusText, { color: getStatusColor(booking.bookingStatus) }]}>
-                    {booking.bookingStatus.toUpperCase()}
+                    {booking.bookingStatus?.toUpperCase() || 'PENDING'}
                   </Text>
                 </View>
               </View>
@@ -193,13 +246,13 @@ const BookingHistoryScreen = () => {
                 <View style={styles.ticketSection}>
                    <View style={styles.ticketMain}>
                       <View style={styles.ticketRow}>
-                         <View>
+                         <View style={{ flex: 1 }}>
                             <Text style={styles.ticketLabel}>FROM</Text>
-                            <Text style={styles.ticketVal}>{selectedBooking.route?.from}</Text>
+                            <Text style={styles.ticketVal}>{selectedBooking.route?.from || '—'}</Text>
                          </View>
-                         <View style={{ alignItems: 'flex-end' }}>
+                         <View style={{ flex: 1, alignItems: 'flex-end' }}>
                             <Text style={styles.ticketLabel}>TO</Text>
-                            <Text style={styles.ticketVal}>{selectedBooking.route?.to}</Text>
+                            <Text style={styles.ticketVal}>{selectedBooking.route?.to || '—'}</Text>
                          </View>
                       </View>
 
@@ -210,26 +263,40 @@ const BookingHistoryScreen = () => {
                       </View>
 
                       <View style={styles.ticketRow}>
-                         <View>
+                         <View style={{ flex: 1 }}>
                             <Text style={styles.ticketLabel}>PASSENGER</Text>
-                            <Text style={styles.ticketVal}>{selectedBooking.passengerName || 'Traveler'}</Text>
+                            <Text style={styles.ticketVal}>{getPassengerName(selectedBooking)}</Text>
                          </View>
-                         <View style={{ alignItems: 'flex-end' }}>
+                         <View style={{ flex: 1, alignItems: 'flex-end' }}>
                             <Text style={styles.ticketLabel}>SEAT</Text>
-                            <Text style={styles.ticketVal}>#{selectedBooking.bookedSeats?.join(', ') || '—'}</Text>
+                            <Text style={styles.ticketVal}>
+                              {getSeats(selectedBooking).length > 0 
+                                ? getSeats(selectedBooking).join(', ') 
+                                : '—'}
+                            </Text>
                          </View>
                       </View>
 
                       <View style={styles.ticketRow}>
-                         <View>
+                         <View style={{ flex: 1 }}>
                             <Text style={styles.ticketLabel}>BUS NUMBER</Text>
-                            <Text style={styles.ticketVal}>{selectedBooking.bus?.busNumber || '—'}</Text>
+                            <Text style={styles.ticketVal}>{selectedBooking.bus?.busNumber || selectedBooking.busNumber || '—'}</Text>
                          </View>
-                         <View style={{ alignItems: 'flex-end' }}>
+                         <View style={{ flex: 1, alignItems: 'flex-end' }}>
                             <Text style={styles.ticketLabel}>TOTAL PRICE</Text>
-                            <Text style={styles.ticketVal}>UGX {(selectedBooking.totalPrice || 0).toLocaleString()}</Text>
+                            <Text style={[styles.ticketVal, { color: colors.primary }]}>
+                              UGX {getTotalPrice(selectedBooking).toLocaleString()}
+                            </Text>
                          </View>
                       </View>
+
+                      {selectedBooking.bookingStatus && (
+                        <View style={[styles.statusContainer, { backgroundColor: getStatusColor(selectedBooking.bookingStatus) + '10' }]}>
+                          <Text style={[styles.statusTextLarge, { color: getStatusColor(selectedBooking.bookingStatus) }]}>
+                            {selectedBooking.bookingStatus.toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
                    </View>
                 </View>
 
@@ -239,11 +306,13 @@ const BookingHistoryScreen = () => {
                     variant="primary"
                     icon="download"
                     style={styles.modalBtn}
-                    onPress={() => {}}
+                    onPress={() => {
+                      Alert.alert('Coming Soon', 'Ticket download feature will be available soon on mobile!');
+                    }}
                   />
-                  {selectedBooking.bookingStatus === 'pending' && (
+                  {selectedBooking.bookingStatus?.toLowerCase() === 'pending' && (
                     <Button
-                      title="Cancel Trip"
+                      title="Cancel Booking"
                       variant="danger"
                       onPress={() => handleCancel(selectedBooking._id)}
                       style={[styles.modalBtn, { marginTop: 12 }]}
@@ -357,6 +426,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  footerInfo: {
+    flex: 1,
+  },
   dateLabel: {
     fontSize: 9,
     color: colors.gray[400],
@@ -376,6 +448,17 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  statusContainer: {
+    marginTop: 20,
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  statusTextLarge: {
+    fontSize: 14,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
@@ -454,12 +537,12 @@ const styles = StyleSheet.create({
     color: colors.gray[400],
     fontWeight: 'bold',
     letterSpacing: 0.5,
+    marginBottom: 4,
   },
   ticketVal: {
     fontSize: 15,
     fontWeight: 'bold',
     color: colors.gray[800],
-    marginTop: 4,
   },
   ticketDivider: {
     flexDirection: 'row',
