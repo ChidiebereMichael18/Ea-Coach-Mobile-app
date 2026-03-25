@@ -1,20 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   TouchableOpacity,
+  Animated,
+  Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Feather as Icon } from '@expo/vector-icons';
+import Icon from '@expo/vector-icons/Feather';
 import { useAuth } from '../../context/AuthContext';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
-import { colors } from '../../styles/colors';
+import { colors, shadows } from '../../styles/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+
+const { width } = Dimensions.get('window');
 
 const SignupScreen = () => {
   const navigation = useNavigation();
@@ -35,26 +41,22 @@ const SignupScreen = () => {
   });
   
   const [errors, setErrors] = useState({});
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(40)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 700, useNativeDriver: true }),
+    ]).start();
+  }, [currentStep]);
 
   const validateStep1 = () => {
     const newErrors = {};
-    if (!formData.fullName) {
-      newErrors.fullName = 'Full name is required';
-    } else if (formData.fullName.length < 3) {
-      newErrors.fullName = 'Name must be at least 3 characters';
-    }
-    
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
-    }
-    
-    if (!formData.phone) {
-      newErrors.phone = 'Phone number is required';
-    } else if (!/^[0-9+\-\s()]{10,}$/.test(formData.phone)) {
-      newErrors.phone = 'Invalid phone number';
-    }
+    if (!formData.fullName) newErrors.fullName = 'Full name is required';
+    if (!formData.email) newErrors.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
+    if (!formData.phone) newErrors.phone = 'Phone number is required';
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -62,40 +64,19 @@ const SignupScreen = () => {
 
   const validateStep2 = () => {
     const newErrors = {};
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Must be at least 8 characters';
-    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-      newErrors.password = 'Needs uppercase, lowercase and number';
-    }
-    
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm password';
-    } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-    
-    if (!formData.agreeToTerms) {
-      newErrors.agreeToTerms = 'You must agree to the terms';
-    }
+    if (!formData.password) newErrors.password = 'Password is required';
+    else if (formData.password.length < 8) newErrors.password = 'Min 8 characters';
+    if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
+    if (!formData.agreeToTerms) newErrors.agreeToTerms = 'Agree to terms to continue';
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNextStep = () => {
-    if (validateStep1()) {
-      setCurrentStep(2);
-    }
-  };
-
   const handleSignup = async () => {
     if (!validateStep2()) return;
-
     setErrors({});
     setIsLoading(true);
-
     try {
       const result = await signup({
         name: formData.fullName.trim(),
@@ -103,365 +84,373 @@ const SignupScreen = () => {
         phone: formData.phone.trim(),
         password: formData.password,
       });
-
       if (!result.success) {
-        setErrors({
-          general: result.error || 'Registration failed. Please try again.',
-        });
-        // If error is about email, move back to step 1
-        if (result.error?.toLowerCase().includes('email')) {
-          setCurrentStep(1);
-        }
+        setErrors({ general: result.error || 'Registration failed.' });
+        if (result.error?.toLowerCase().includes('email')) setCurrentStep(1);
       }
     } catch (err) {
-      setErrors({
-        general: 'An unexpected error occurred. Please try again.',
-      });
+      setErrors({ general: 'Connection error. Please try again.' });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const passwordStrength = () => {
-    const password = formData.password;
-    let strength = 0;
-    if (password.length >= 8) strength++;
-    if (/(?=.*[a-z])/.test(password)) strength++;
-    if (/(?=.*[A-Z])/.test(password)) strength++;
-    if (/(?=.*\d)/.test(password)) strength++;
-    if (/(?=.*[!@#$%^&*])/.test(password)) strength++;
-    return strength;
-  };
-
   const getStrengthInfo = () => {
-    const strength = passwordStrength();
-    if (strength <= 2) return { text: 'Weak', color: colors.danger, width: '33%' };
-    if (strength <= 4) return { text: 'Medium', color: colors.warning, width: '66%' };
+    const len = formData.password.length;
+    if (len === 0) return null;
+    if (len < 6) return { text: 'Weak', color: colors.danger, width: '33%' };
+    if (len < 10) return { text: 'Fair', color: colors.warning, width: '66%' };
     return { text: 'Strong', color: colors.success, width: '100%' };
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
+        style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Join EA Coach for easy bus bookings</Text>
-          </View>
-
-          {/* Progress Steps */}
-          <View style={styles.progressContainer}>
-            <View style={styles.progressStep}>
-              <View style={[styles.stepCircle, currentStep >= 1 && styles.activeCircle]}>
-                <Text style={[styles.stepText, currentStep >= 1 && styles.activeStepText]}>1</Text>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <LinearGradient
+            colors={colors.gradients.primary}
+            style={styles.topDecor}
+          >
+            <SafeAreaView edges={['top']} />
+            <View style={styles.decorCircle1} />
+            <View style={styles.decorCircle2} />
+            
+            <View style={styles.header}>
+              <Text style={styles.brandName}>Join EA Coach</Text>
+              <Text style={styles.tagline}>Start your premium journey today</Text>
+              
+              <View style={styles.progressContainer}>
+                <View style={[styles.progressStep, currentStep === 1 ? styles.stepActive : styles.stepDone]}>
+                  <Text style={styles.stepNum}>{currentStep > 1 ? '✓' : '1'}</Text>
+                </View>
+                <View style={styles.progressLine} />
+                <View style={[styles.progressStep, currentStep === 2 ? styles.stepActive : styles.stepWaiting]}>
+                  <Text style={styles.stepNum}>2</Text>
+                </View>
               </View>
-              <Text style={styles.stepLabel}>Personal</Text>
             </View>
-            <View style={[styles.progressLine, currentStep >= 2 && styles.activeLine]} />
-            <View style={styles.progressStep}>
-              <View style={[styles.stepCircle, currentStep >= 2 && styles.activeCircle]}>
-                <Text style={[styles.stepText, currentStep >= 2 && styles.activeStepText]}>2</Text>
+          </LinearGradient>
+
+          <Animated.View style={[styles.mainSection, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            {errors.general && (
+              <View style={styles.errorBanner}>
+                <Icon name="alert-circle" size={16} color={colors.danger} />
+                <Text style={styles.errorText}>{errors.general}</Text>
               </View>
-              <Text style={styles.stepLabel}>Security</Text>
-            </View>
-          </View>
+            )}
 
-          {errors.general && (
-            <View style={styles.errorBanner}>
-              <Icon name="alert-circle" size={18} color={colors.danger} />
-              <Text style={styles.errorText}>{errors.general}</Text>
-            </View>
-          )}
+            <View style={styles.formCard}>
+              {currentStep === 1 ? (
+                <View>
+                  <Text style={styles.formTitle}>Your Details</Text>
+                  <Input
+                    label="Full Name"
+                    value={formData.fullName}
+                    onChangeText={(txt) => setFormData({ ...formData, fullName: txt })}
+                    placeholder="Enter your name"
+                    leftIcon="user"
+                    error={errors.fullName}
+                  />
+                  <Input
+                    label="Email Address"
+                    value={formData.email}
+                    onChangeText={(txt) => setFormData({ ...formData, email: txt })}
+                    placeholder="you@example.com"
+                    leftIcon="mail"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    error={errors.email}
+                  />
+                  <Input
+                    label="Phone Number"
+                    value={formData.phone}
+                    onChangeText={(txt) => setFormData({ ...formData, phone: txt })}
+                    placeholder="+256 7xx xxx xxx"
+                    leftIcon="phone"
+                    keyboardType="phone-pad"
+                    error={errors.phone}
+                  />
+                  <Button
+                    title="Continue"
+                    onPress={() => validateStep1() && setCurrentStep(2)}
+                    style={styles.actionBtn}
+                    rightIcon="arrow-right"
+                  />
+                </View>
+              ) : (
+                <View>
+                  <Text style={styles.formTitle}>Secure Account</Text>
+                  <Input
+                    label="Password"
+                    value={formData.password}
+                    onChangeText={(txt) => setFormData({ ...formData, password: txt })}
+                    placeholder="••••••••"
+                    leftIcon="lock"
+                    secureTextEntry={!showPassword}
+                    rightIcon={showPassword ? "eye-off" : "eye"}
+                    onRightIconPress={() => setShowPassword(!showPassword)}
+                    error={errors.password}
+                  />
+                  
+                  {getStrengthInfo() && (
+                    <View style={styles.strengthBox}>
+                       <View style={styles.strengthBarBg}>
+                         <Animated.View style={[styles.strengthBar, { width: getStrengthInfo().width, backgroundColor: getStrengthInfo().color }]} />
+                       </View>
+                       <Text style={[styles.strengthText, { color: getStrengthInfo().color }]}>{getStrengthInfo().text}</Text>
+                    </View>
+                  )}
 
-          {currentStep === 1 ? (
-            <View style={styles.form}>
-              <Input
-                label="Full Name"
-                value={formData.fullName}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, fullName: text }))}
-                placeholder="John Doe"
-                leftIcon="user"
-                error={errors.fullName}
-              />
-              <Input
-                label="Email Address"
-                value={formData.email}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, email: text }))}
-                placeholder="you@example.com"
-                leftIcon="mail"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                error={errors.email}
-              />
-              <Input
-                label="Phone Number"
-                value={formData.phone}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
-                placeholder="+256 700 123 456"
-                leftIcon="phone"
-                keyboardType="phone-pad"
-                error={errors.phone}
-              />
-              <Button
-                title="Continue"
-                onPress={handleNextStep}
-                style={styles.actionButton}
-                rightIcon="chevron-right"
-              />
-            </View>
-          ) : (
-            <View style={styles.form}>
-              <Input
-                label="Password"
-                value={formData.password}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, password: text }))}
-                placeholder="Create a strong password"
-                leftIcon="lock"
-                secureTextEntry={!showPassword}
-                rightIcon={showPassword ? "eye-off" : "eye"}
-                onRightIconPress={() => setShowPassword(!showPassword)}
-                error={errors.password}
-              />
+                  <Input
+                    label="Confirm Password"
+                    value={formData.confirmPassword}
+                    onChangeText={(txt) => setFormData({ ...formData, confirmPassword: txt })}
+                    placeholder="••••••••"
+                    leftIcon="lock"
+                    secureTextEntry={!showConfirmPassword}
+                    rightIcon={showConfirmPassword ? "eye-off" : "eye"}
+                    onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    error={errors.confirmPassword}
+                  />
 
-              {formData.password.length > 0 && (
-                <View style={styles.strengthContainer}>
-                  <View style={styles.strengthBarBg}>
-                    <View style={[
-                      styles.strengthBar, 
-                      { width: getStrengthInfo().width, backgroundColor: getStrengthInfo().color }
-                    ]} />
+                  <TouchableOpacity 
+                    style={styles.termsRow}
+                    onPress={() => setFormData({ ...formData, agreeToTerms: !formData.agreeToTerms })}
+                  >
+                    <View style={[styles.checkbox, formData.agreeToTerms && styles.checkboxActive]}>
+                      {formData.agreeToTerms && <Icon name="check" size={12} color={colors.white} />}
+                    </View>
+                    <Text style={styles.termsText}>I agree to the Terms & Privacy Policy</Text>
+                  </TouchableOpacity>
+                  {errors.agreeToTerms && <Text style={styles.fieldError}>{errors.agreeToTerms}</Text>}
+
+                  <View style={styles.btnRow}>
+                    <Button
+                      title="Back"
+                      variant="outline"
+                      onPress={() => setCurrentStep(1)}
+                      style={styles.halfBtn}
+                    />
+                    <Button
+                      title="Create Account"
+                      onPress={handleSignup}
+                      loading={isLoading}
+                      style={styles.halfBtn}
+                    />
                   </View>
-                  <Text style={[styles.strengthText, { color: getStrengthInfo().color }]}>
-                    {getStrengthInfo().text}
-                  </Text>
                 </View>
               )}
-
-              <Input
-                label="Confirm Password"
-                value={formData.confirmPassword}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, confirmPassword: text }))}
-                placeholder="Confirm your password"
-                leftIcon="lock"
-                secureTextEntry={!showConfirmPassword}
-                rightIcon={showConfirmPassword ? "eye-off" : "eye"}
-                onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                error={errors.confirmPassword}
-              />
-
-              <TouchableOpacity 
-                style={styles.termsContainer}
-                onPress={() => setFormData(prev => ({ ...prev, agreeToTerms: !prev.agreeToTerms }))}
-              >
-                <Icon 
-                  name={formData.agreeToTerms ? "check-square" : "square"} 
-                  size={20} 
-                  color={formData.agreeToTerms ? colors.primary : colors.gray[400]} 
-                />
-                <Text style={styles.termsText}>
-                  I agree to the <Text style={styles.linkText}>Terms</Text> and <Text style={styles.linkText}>Privacy Policy</Text>
-                </Text>
-              </TouchableOpacity>
-              {errors.agreeToTerms && (
-                <Text style={styles.fieldError}>{errors.agreeToTerms}</Text>
-              )}
-
-              <View style={styles.buttonRow}>
-                <Button
-                  title="Back"
-                  onPress={() => setCurrentStep(1)}
-                  variant="outline"
-                  style={styles.halfButton}
-                />
-                <Button
-                  title="Sign Up"
-                  onPress={handleSignup}
-                  loading={isLoading}
-                  style={styles.halfButton}
-                />
-              </View>
             </View>
-          )}
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.loginText}>Sign In</Text>
-            </TouchableOpacity>
-          </View>
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Already have an account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                <Text style={styles.loginText}>Sign In</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
-  },
-  flex: {
-    flex: 1,
+    backgroundColor: colors.gray[50],
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 40,
     paddingBottom: 40,
+  },
+  topDecor: {
+    paddingBottom: 60,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    overflow: 'hidden',
+  },
+  decorCircle1: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    top: -80,
+    right: -40,
+  },
+  decorCircle2: {
+    position: 'absolute',
+    top: -20,
+    left: -40,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginTop: 20,
+    paddingHorizontal: 24,
   },
-  title: {
+  brandName: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.gray[900],
-    marginBottom: 8,
+    fontWeight: '800',
+    color: colors.white,
   },
-  subtitle: {
-    fontSize: 16,
-    color: colors.gray[500],
-    textAlign: 'center',
+  tagline: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 6,
+    fontWeight: '500',
   },
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 32,
+    marginTop: 24,
   },
   progressStep: {
-    alignItems: 'center',
-  },
-  stepCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.gray[200],
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
+    borderWidth: 2,
   },
-  activeCircle: {
-    backgroundColor: colors.primary,
+  stepActive: {
+    backgroundColor: colors.white,
+    borderColor: colors.white,
   },
-  stepText: {
+  stepDone: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderColor: 'transparent',
+  },
+  stepWaiting: {
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  stepNum: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: colors.gray[600],
-  },
-  activeStepText: {
-    color: colors.white,
-  },
-  stepLabel: {
-    fontSize: 12,
-    color: colors.gray[500],
-    fontWeight: '500',
+    fontWeight: '800',
+    color: colors.primary,
   },
   progressLine: {
     width: 40,
     height: 2,
-    backgroundColor: colors.gray[200],
+    backgroundColor: 'rgba(255,255,255,0.2)',
     marginHorizontal: 12,
-    marginTop: -16,
   },
-  activeLine: {
-    backgroundColor: colors.primary,
+  mainSection: {
+    marginTop: -32,
   },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF2F2',
-    padding: 12,
-    borderRadius: 12,
+  formCard: {
+    backgroundColor: colors.white,
+    marginHorizontal: 20,
+    borderRadius: 28,
+    padding: 24,
+    ...shadows.lg,
+  },
+  formTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.gray[800],
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
   },
-  errorText: {
-    color: colors.danger,
-    fontSize: 14,
-    marginLeft: 8,
-    flex: 1,
+  actionBtn: {
+    height: 54,
+    marginTop: 8,
   },
-  form: {
-    flex: 1,
+  btnRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
   },
-  actionButton: {
-    marginTop: 16,
-    height: 56,
+  halfBtn: {
+    width: '48%',
   },
-  strengthContainer: {
+  strengthBox: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: -10,
     marginBottom: 16,
-    marginTop: -8,
   },
   strengthBarBg: {
     flex: 1,
-    height: 6,
+    height: 4,
     backgroundColor: colors.gray[100],
-    borderRadius: 3,
+    borderRadius: 2,
     marginRight: 10,
     overflow: 'hidden',
   },
   strengthBar: {
     height: '100%',
-    borderRadius: 3,
   },
   strengthText: {
-    fontSize: 12,
-    fontWeight: '600',
-    width: 50,
+    fontSize: 11,
+    fontWeight: '700',
   },
-  termsContainer: {
+  termsRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 8,
-    marginBottom: 8,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.gray[200],
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  checkboxActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   termsText: {
-    fontSize: 14,
-    color: colors.gray[600],
-    marginLeft: 10,
-    flex: 1,
-    lineHeight: 20,
-  },
-  linkText: {
-    color: colors.primary,
-    fontWeight: '600',
+    fontSize: 13,
+    color: colors.gray[500],
+    fontWeight: '500',
   },
   fieldError: {
     color: colors.danger,
     fontSize: 12,
-    marginBottom: 16,
+    marginBottom: 12,
+    marginTop: -12,
   },
-  buttonRow: {
+  errorBanner: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 16,
+    alignItems: 'center',
+    backgroundColor: colors.dangerLight,
+    padding: 14,
+    marginHorizontal: 24,
+    borderRadius: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
-  halfButton: {
-    width: '48%',
-    height: 56,
+  errorText: {
+    color: colors.danger,
+    fontSize: 13,
+    marginLeft: 10,
+    fontWeight: '500',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
     marginTop: 32,
   },
   footerText: {
-    fontSize: 14,
-    color: colors.gray[600],
+    color: colors.gray[500],
   },
   loginText: {
-    fontSize: 14,
     color: colors.primary,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
 });
 

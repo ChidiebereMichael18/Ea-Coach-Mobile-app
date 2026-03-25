@@ -47,3 +47,20 @@ export async function getMyBookings() {
     };
   }
 }
+
+/**
+ * Cancel a booking
+ * @param {string} id 
+ * @returns {Promise<{ success: boolean, data?: object, error?: string }>}
+ */
+export async function cancelBooking(id) {
+  try {
+    const response = await api.post(`/bookings/cancel/${id}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error.response?.data?.message || 'Failed to cancel booking' 
+    };
+  }
+}

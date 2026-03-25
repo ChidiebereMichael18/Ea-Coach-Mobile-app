@@ -5,77 +5,69 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
-  StatusBar,
 } from 'react-native';
-import { Feather as Icon } from '@expo/vector-icons';
+import Icon from '@expo/vector-icons/Feather';
 import { colors } from '../../styles/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 
 const { width, height } = Dimensions.get('window');
 
 const SplashScreen = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const textFade = useRef(new Animated.Value(0)).current;
   const loadingAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Logo sequence
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 10,
-        useNativeDriver: true,
-      }),
+    // Logo entrance
+    Animated.sequence([
+      Animated.parallel([
+        Animated.spring(scaleAnim, { toValue: 1, tension: 20, friction: 7, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      ]),
+      Animated.timing(textFade, { toValue: 1, duration: 400, useNativeDriver: true }),
     ]).start();
 
-    // Infinite loading line
+    // Pulse animation for logo
     Animated.loop(
       Animated.sequence([
-        Animated.timing(loadingAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(loadingAnim, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
+        Animated.timing(pulseAnim, { toValue: 1.05, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
       ])
     ).start();
-  }, [fadeAnim, slideAnim, scaleAnim, loadingAnim]);
+
+    // Loading bar
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(loadingAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
+        Animated.timing(loadingAnim, { toValue: 0, duration: 0, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
 
   return (
-    <View style={styles.container}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+    <LinearGradient
+      colors={colors.gradients.primary}
+      style={styles.container}
+    >
+      <StatusBar style="light" />
       
-      {/* Background Decor */}
-      <View style={styles.circle1} />
-      <View style={styles.circle2} />
+      {/* Background orbs */}
+      <View style={styles.orb1} />
+      <View style={styles.orb2} />
+      <View style={styles.orb3} />
 
-      <Animated.View style={[
-        styles.logoContainer,
-        {
-          opacity: fadeAnim,
-          transform: [
-            { translateY: slideAnim },
-            { scale: scaleAnim }
-          ]
-        }
-      ]}>
-        <View style={styles.iconCircle}>
-          <Icon name="truck" size={60} color={colors.white} />
-        </View>
+      <Animated.View style={[styles.logoArea, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+        <Animated.View style={[styles.iconCircle, { transform: [{ scale: pulseAnim }] }]}>
+          <View style={styles.iconInner}>
+            <Icon name="truck" size={48} color={colors.white} />
+          </View>
+        </Animated.View>
+      </Animated.View>
+
+      <Animated.View style={[styles.textArea, { opacity: textFade }]}>
         <Text style={styles.appName}>EA Coach</Text>
         <Text style={styles.tagline}>Premium Travel Made Simple</Text>
       </Animated.View>
@@ -88,80 +80,112 @@ const SplashScreen = () => {
               transform: [{
                 translateX: loadingAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [-100, width - 40]
+                  outputRange: [-120, width - 40]
                 })
               }]
             }
           ]} />
         </View>
-        <Text style={styles.footerText}>Securely connecting your journey...</Text>
+        <Text style={styles.footerText}>Secure Connection</Text>
       </View>
-    </View>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  circle1: {
+  
+  // Background orbs
+  orb1: {
     position: 'absolute',
-    width: width * 1.5,
-    height: width * 1.5,
-    borderRadius: (width * 1.5) / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    top: -height * 0.2,
-    left: -width * 0.5,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    top: -50,
+    right: -100,
   },
-  circle2: {
+  orb2: {
     position: 'absolute',
-    width: width,
-    height: width,
-    borderRadius: width / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    bottom: -height * 0.1,
-    right: -width * 0.3,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    bottom: 100,
+    left: -60,
   },
-  logoContainer: {
+  orb3: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    top: height * 0.35,
+    right: -40,
+  },
+
+  logoArea: {
     alignItems: 'center',
   },
   iconCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 130,
+    height: 130,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  iconInner: {
+    width: 90,
+    height: 90,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: colors.white,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+  },
+
+  textArea: {
+    alignItems: 'center',
+    marginTop: 32,
   },
   appName: {
     fontSize: 42,
-    fontWeight: 'bold',
+    fontWeight: '900',
     color: colors.white,
-    letterSpacing: 1,
+    letterSpacing: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   tagline: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(255,255,255,0.7)',
     marginTop: 8,
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: 1,
   },
+
   footer: {
     position: 'absolute',
-    bottom: 60,
+    bottom: 80,
     width: '100%',
-    paddingHorizontal: 40,
+    paddingHorizontal: 60,
     alignItems: 'center',
   },
   loadingTrack: {
     width: '100%',
     height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 2,
     overflow: 'hidden',
     marginBottom: 16,
@@ -169,14 +193,15 @@ const styles = StyleSheet.create({
   loadingBar: {
     width: 100,
     height: '100%',
-    backgroundColor: colors.white,
+    backgroundColor: 'rgba(255,255,255,0.6)',
     borderRadius: 2,
   },
   footerText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.5)',
-    letterSpacing: 1,
+    color: 'rgba(255,255,255,0.5)',
+    letterSpacing: 2,
     textTransform: 'uppercase',
+    fontWeight: '700',
   },
 });
 

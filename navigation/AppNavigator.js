@@ -12,6 +12,7 @@ import PassengerDetailsScreen from '../screens/main/PassengerDetailsScreen';
 import PaymentScreen from '../screens/main/PaymentScreen';
 import BookingConfirmationScreen from '../screens/main/BookingConfirmationScreen';
 import RoutesScreen from '../screens/main/RoutesScreen';
+import BookingHistoryScreen from '../screens/dashboard/BookingHistoryScreen';
 
 const Stack = createStackNavigator();
 
@@ -43,6 +44,7 @@ const AppNavigator = () => {
         <>
           <Stack.Screen name="MainTabs" component={MainTabNavigator} />
           <Stack.Screen name="Booking" component={BookingScreen} />
+          <Stack.Screen name="BookingHistory" component={BookingHistoryScreen} />
           <Stack.Screen name="ChatSupport" component={ChatSupportScreen} />
           <Stack.Screen name="Routes" component={RoutesScreen} />
           <Stack.Screen name="SeatSelection" component={SeatSelectionScreen} />

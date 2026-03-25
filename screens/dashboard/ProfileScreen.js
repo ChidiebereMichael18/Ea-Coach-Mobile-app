@@ -13,9 +13,11 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather as Icon } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import Icon from '@expo/vector-icons/Feather';
 import { useAuth } from '../../context/AuthContext';
-import { colors } from '../../styles/colors';
+import { colors, shadows } from '../../styles/colors';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 
@@ -70,9 +72,12 @@ const ProfileScreen = () => {
     <View style={styles.tabContent}>
       <View style={styles.avatarSection}>
         <View style={styles.avatarWrapper}>
-          <View style={styles.avatarLarge}>
+          <LinearGradient
+            colors={colors.gradients.primary}
+            style={styles.avatarLarge}
+          >
             <Text style={styles.avatarText}>{formData.name?.charAt(0).toUpperCase()}</Text>
-          </View>
+          </LinearGradient>
           {isEditing && (
             <TouchableOpacity style={styles.editAvatarBtn}>
               <Icon name="camera" size={16} color={colors.white} />
@@ -174,7 +179,7 @@ const ProfileScreen = () => {
           <Switch
             value={notifications.email}
             onValueChange={(val) => setNotifications({ ...notifications, email: val })}
-            trackColor={{ false: '#E5E7EB', true: colors.primary + '80' }}
+            trackColor={{ false: colors.gray[200], true: colors.primaryLight }}
             thumbColor={notifications.email ? colors.primary : '#F4F4F4'}
           />
         </View>
@@ -187,7 +192,7 @@ const ProfileScreen = () => {
           <Switch
             value={notifications.sms}
             onValueChange={(val) => setNotifications({ ...notifications, sms: val })}
-            trackColor={{ false: '#E5E7EB', true: colors.primary + '80' }}
+            trackColor={{ false: colors.gray[200], true: colors.primaryLight }}
             thumbColor={notifications.sms ? colors.primary : '#F4F4F4'}
           />
         </View>
@@ -200,7 +205,7 @@ const ProfileScreen = () => {
           <Switch
             value={notifications.promo}
             onValueChange={(val) => setNotifications({ ...notifications, promo: val })}
-            trackColor={{ false: '#E5E7EB', true: colors.primary + '80' }}
+            trackColor={{ false: colors.gray[200], true: colors.primaryLight }}
             thumbColor={notifications.promo ? colors.primary : '#F4F4F4'}
           />
         </View>
@@ -209,18 +214,29 @@ const ProfileScreen = () => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <Text style={styles.title}>My Profile</Text>
-            <TouchableOpacity onPress={handleLogout}>
-                <Icon name="log-out" size={20} color={colors.danger} />
-            </TouchableOpacity>
-          </View>
+          {/* Header - Flush with top */}
+          <LinearGradient
+            colors={colors.gradients.primary}
+            style={styles.headerArea}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <SafeAreaView edges={['top']}>
+              <View style={styles.header}>
+                <Text style={styles.title}>My Profile</Text>
+                <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+                    <Icon name="log-out" size={20} color={colors.white} />
+                </TouchableOpacity>
+              </View>
+            </SafeAreaView>
+          </LinearGradient>
 
           <View style={styles.tabsContainer}>
             {[
@@ -257,37 +273,50 @@ const ProfileScreen = () => {
           <View style={styles.footerSpacing} />
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.gray[50],
+  },
+  headerArea: {
+    paddingBottom: 24,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    ...shadows.md,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 10,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.gray[900],
+    color: colors.white,
+  },
+  logoutBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tabsContainer: {
     flexDirection: 'row',
     backgroundColor: colors.white,
     marginHorizontal: 20,
-    borderRadius: 16,
-    padding: 4,
+    borderRadius: 20,
+    padding: 6,
+    marginTop: -28, // Offset up
     marginBottom: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    elevation: 1,
+    ...shadows.md,
   },
   tab: {
     flex: 1,
@@ -295,10 +324,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 15,
   },
   activeTab: {
-    backgroundColor: colors.primary + '10',
+    backgroundColor: colors.primaryGhost,
   },
   tabText: {
     fontSize: 13,
@@ -324,13 +353,9 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
+    ...shadows.primary,
   },
   avatarText: {
     fontSize: 40,
@@ -362,12 +387,9 @@ const styles = StyleSheet.create({
   },
   formSection: {
     backgroundColor: colors.white,
-    padding: 20,
-    borderRadius: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 15,
-    elevation: 2,
+    padding: 24,
+    borderRadius: 28,
+    ...shadows.md,
   },
   inputSpacing: {
     marginBottom: 16,
@@ -386,9 +408,9 @@ const styles = StyleSheet.create({
   securityWarning: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningLight,
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 20,
     marginBottom: 24,
     borderWidth: 1,
     borderColor: '#FDE68A',
@@ -409,6 +431,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 24,
     marginTop: 24,
+    ...shadows.sm,
   },
   settingTextContent: {
     flex: 1,
@@ -425,8 +448,9 @@ const styles = StyleSheet.create({
   },
   notificationGroup: {
     backgroundColor: colors.white,
-    borderRadius: 24,
+    borderRadius: 28,
     padding: 8,
+    ...shadows.md,
   },
   switchItem: {
     flexDirection: 'row',
